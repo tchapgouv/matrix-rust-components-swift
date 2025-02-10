@@ -30,7 +30,7 @@ as specified in [README](https://github.com/element-hq/matrix-rust-components-sw
     - But we will use it as a local binary target. The `url` property in `targets` is replaced by local `path` property and `checksum` property is removed (unused when using local dependency).
   - Note: the file `Package.swift` will be updated if present.
 
-The genearted Swift package should looks like:
+If the file `Package.swift` already exists in `matrix-rust-components-swift` folder, it will be updated with generated version. The `Package.swift` file template can be as follow (prefilled for a locally generated Swift Package framework):
 ```
 import PackageDescription
 
@@ -65,7 +65,7 @@ packages:
     path: ../matrix-rust-sdk-tchap/matrix-rust-components-swift
 ```
 
-Note: he locally linked `matrix-rust-components-swift` package is not in Xcode `Package Dependencies` section of the project but in `Packages` folder of the project source tree.
+Note: the locally linked `matrix-rust-components-swift` package is not in Xcode `Package Dependencies` section of the project but in `Packages` folder of the project source tree.
 
 ## Caveat
 
