@@ -5163,15 +5163,6 @@ public protocol RoomProtocol : AnyObject {
      */
     func enableSendQueue(enable: Bool) 
     
-    /**
-     * Forget this room.
-     *
-     * This communicates to the homeserver that it should forget the room.
-     *
-     * Only left or banned-from rooms can be forgotten.
-     */
-    func forget() async throws 
-    
     func getPowerLevels() async throws  -> RoomPowerLevels
     
     /**
@@ -5408,6 +5399,11 @@ public protocol RoomProtocol : AnyObject {
      * * `content` - The content of the event to send encoded as JSON string.
      */
     func sendRaw(eventType: String, content: String) async throws 
+    
+    /**
+     * Sets the room access rules.
+     */
+    func setAccessRules(rule: String) async throws 
     
     func setIsFavourite(isFavourite: Bool, tagOrder: Double?) async throws 
     
@@ -5941,30 +5937,6 @@ open func enableSendQueue(enable: Bool) {try! rustCall() {
         FfiConverterBool.lower(enable),$0
     )
 }
-}
-    
-    /**
-     * Forget this room.
-     *
-     * This communicates to the homeserver that it should forget the room.
-     *
-     * Only left or banned-from rooms can be forgotten.
-     */
-open func forget()async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_room_forget(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeClientError.lift
-        )
 }
     
 open func getPowerLevels()async throws  -> RoomPowerLevels {
@@ -6730,6 +6702,26 @@ open func sendRaw(eventType: String, content: String)async throws  {
                 uniffi_matrix_sdk_ffi_fn_method_room_send_raw(
                     self.uniffiClonePointer(),
                     FfiConverterString.lower(eventType),FfiConverterString.lower(content)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+}
+    
+    /**
+     * Sets the room access rules.
+     */
+open func setAccessRules(rule: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_room_set_access_rules(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(rule)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -7921,7 +7913,10 @@ public protocol RoomListItemProtocol : AnyObject {
     
     /**
      * Builds a `RoomPreview` from a room list item. This is intended for
-     * invited, knocked or banned rooms.
+     * invited or knocked rooms.
+     *
+     * An error will be returned if the room is in a state other than invited
+     * or knocked.
      */
     func previewRoom(via: [String]) async throws  -> RoomPreview
     
@@ -8130,7 +8125,10 @@ open func membership() -> Membership {
     
     /**
      * Builds a `RoomPreview` from a room list item. This is intended for
-     * invited, knocked or banned rooms.
+     * invited or knocked rooms.
+     *
+     * An error will be returned if the room is in a state other than invited
+     * or knocked.
      */
 open func previewRoom(via: [String])async throws  -> RoomPreview {
     return
@@ -8589,11 +8587,6 @@ public func FfiConverterTypeRoomMessageEventContentWithoutRelation_lower(_ value
 public protocol RoomPreviewProtocol : AnyObject {
     
     /**
-     * Forget the room if we had access to it, and it was left or banned.
-     */
-    func forget() async throws 
-    
-    /**
      * Returns the room info the preview contains.
      */
     func info() throws  -> RoomPreviewInfo
@@ -8662,26 +8655,6 @@ open class RoomPreview:
 
     
 
-    
-    /**
-     * Forget the room if we had access to it, and it was left or banned.
-     */
-open func forget()async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_roompreview_forget(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeClientError.lift
-        )
-}
     
     /**
      * Returns the room info the preview contains.
@@ -9164,12 +9137,7 @@ public protocol SessionVerificationControllerProtocol : AnyObject {
     /**
      * Request verification for the current device
      */
-    func requestDeviceVerification() async throws 
-    
-    /**
-     * Request verification for the given user
-     */
-    func requestUserVerification(userId: String) async throws 
+    func requestVerification() async throws 
     
     func setDelegate(delegate: SessionVerificationControllerDelegate?) 
     
@@ -9328,33 +9296,13 @@ open func declineVerification()async throws  {
     /**
      * Request verification for the current device
      */
-open func requestDeviceVerification()async throws  {
+open func requestVerification()async throws  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_sessionverificationcontroller_request_device_verification(
+                uniffi_matrix_sdk_ffi_fn_method_sessionverificationcontroller_request_verification(
                     self.uniffiClonePointer()
                     
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeClientError.lift
-        )
-}
-    
-    /**
-     * Request verification for the given user
-     */
-open func requestUserVerification(userId: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_sessionverificationcontroller_request_user_verification(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(userId)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -12595,6 +12543,7 @@ public func FfiConverterTypeComposerDraft_lower(_ value: ComposerDraft) -> RustB
 
 
 public struct CreateRoomParameters {
+    public var accessRules: String?
     public var name: String?
     public var topic: String?
     public var isEncrypted: Bool
@@ -12609,7 +12558,8 @@ public struct CreateRoomParameters {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, canonicalAlias: String? = nil) {
+    public init(accessRules: String? = nil, name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, canonicalAlias: String? = nil) {
+        self.accessRules = accessRules
         self.name = name
         self.topic = topic
         self.isEncrypted = isEncrypted
@@ -12628,6 +12578,9 @@ public struct CreateRoomParameters {
 
 extension CreateRoomParameters: Equatable, Hashable {
     public static func ==(lhs: CreateRoomParameters, rhs: CreateRoomParameters) -> Bool {
+        if lhs.accessRules != rhs.accessRules {
+            return false
+        }
         if lhs.name != rhs.name {
             return false
         }
@@ -12665,6 +12618,7 @@ extension CreateRoomParameters: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
+        hasher.combine(accessRules)
         hasher.combine(name)
         hasher.combine(topic)
         hasher.combine(isEncrypted)
@@ -12684,6 +12638,7 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CreateRoomParameters {
         return
             try CreateRoomParameters(
+                accessRules: FfiConverterOptionString.read(from: &buf), 
                 name: FfiConverterOptionString.read(from: &buf), 
                 topic: FfiConverterOptionString.read(from: &buf), 
                 isEncrypted: FfiConverterBool.read(from: &buf), 
@@ -12699,6 +12654,7 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: CreateRoomParameters, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.accessRules, into: &buf)
         FfiConverterOptionString.write(value.name, into: &buf)
         FfiConverterOptionString.write(value.topic, into: &buf)
         FfiConverterBool.write(value.isEncrypted, into: &buf)
@@ -16747,10 +16703,10 @@ public func FfiConverterTypeSession_lower(_ value: Session) -> RustBuffer {
  * Details about the incoming verification request
  */
 public struct SessionVerificationRequestDetails {
-    public var senderProfile: UserProfile
+    public var senderId: String
     public var flowId: String
     public var deviceId: String
-    public var deviceDisplayName: String?
+    public var displayName: String?
     /**
      * First time this device was seen in milliseconds since epoch.
      */
@@ -16758,14 +16714,14 @@ public struct SessionVerificationRequestDetails {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(senderProfile: UserProfile, flowId: String, deviceId: String, deviceDisplayName: String?, 
+    public init(senderId: String, flowId: String, deviceId: String, displayName: String?, 
         /**
          * First time this device was seen in milliseconds since epoch.
          */firstSeenTimestamp: Timestamp) {
-        self.senderProfile = senderProfile
+        self.senderId = senderId
         self.flowId = flowId
         self.deviceId = deviceId
-        self.deviceDisplayName = deviceDisplayName
+        self.displayName = displayName
         self.firstSeenTimestamp = firstSeenTimestamp
     }
 }
@@ -16774,7 +16730,7 @@ public struct SessionVerificationRequestDetails {
 
 extension SessionVerificationRequestDetails: Equatable, Hashable {
     public static func ==(lhs: SessionVerificationRequestDetails, rhs: SessionVerificationRequestDetails) -> Bool {
-        if lhs.senderProfile != rhs.senderProfile {
+        if lhs.senderId != rhs.senderId {
             return false
         }
         if lhs.flowId != rhs.flowId {
@@ -16783,7 +16739,7 @@ extension SessionVerificationRequestDetails: Equatable, Hashable {
         if lhs.deviceId != rhs.deviceId {
             return false
         }
-        if lhs.deviceDisplayName != rhs.deviceDisplayName {
+        if lhs.displayName != rhs.displayName {
             return false
         }
         if lhs.firstSeenTimestamp != rhs.firstSeenTimestamp {
@@ -16793,10 +16749,10 @@ extension SessionVerificationRequestDetails: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(senderProfile)
+        hasher.combine(senderId)
         hasher.combine(flowId)
         hasher.combine(deviceId)
-        hasher.combine(deviceDisplayName)
+        hasher.combine(displayName)
         hasher.combine(firstSeenTimestamp)
     }
 }
@@ -16806,19 +16762,19 @@ public struct FfiConverterTypeSessionVerificationRequestDetails: FfiConverterRus
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SessionVerificationRequestDetails {
         return
             try SessionVerificationRequestDetails(
-                senderProfile: FfiConverterTypeUserProfile.read(from: &buf), 
+                senderId: FfiConverterString.read(from: &buf), 
                 flowId: FfiConverterString.read(from: &buf), 
                 deviceId: FfiConverterString.read(from: &buf), 
-                deviceDisplayName: FfiConverterOptionString.read(from: &buf), 
+                displayName: FfiConverterOptionString.read(from: &buf), 
                 firstSeenTimestamp: FfiConverterTypeTimestamp.read(from: &buf)
         )
     }
 
     public static func write(_ value: SessionVerificationRequestDetails, into buf: inout [UInt8]) {
-        FfiConverterTypeUserProfile.write(value.senderProfile, into: &buf)
+        FfiConverterString.write(value.senderId, into: &buf)
         FfiConverterString.write(value.flowId, into: &buf)
         FfiConverterString.write(value.deviceId, into: &buf)
-        FfiConverterOptionString.write(value.deviceDisplayName, into: &buf)
+        FfiConverterOptionString.write(value.displayName, into: &buf)
         FfiConverterTypeTimestamp.write(value.firstSeenTimestamp, into: &buf)
     }
 }
@@ -19201,8 +19157,6 @@ public enum ClientError {
     
     case Generic(msg: String
     )
-    case MatrixApi(kind: ErrorKind, code: String, msg: String
-    )
 }
 
 
@@ -19219,11 +19173,6 @@ public struct FfiConverterTypeClientError: FfiConverterRustBuffer {
         case 1: return .Generic(
             msg: try FfiConverterString.read(from: &buf)
             )
-        case 2: return .MatrixApi(
-            kind: try FfiConverterTypeErrorKind.read(from: &buf), 
-            code: try FfiConverterString.read(from: &buf), 
-            msg: try FfiConverterString.read(from: &buf)
-            )
 
          default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -19238,13 +19187,6 @@ public struct FfiConverterTypeClientError: FfiConverterRustBuffer {
         
         case let .Generic(msg):
             writeInt(&buf, Int32(1))
-            FfiConverterString.write(msg, into: &buf)
-            
-        
-        case let .MatrixApi(kind,code,msg):
-            writeInt(&buf, Int32(2))
-            FfiConverterTypeErrorKind.write(kind, into: &buf)
-            FfiConverterString.write(code, into: &buf)
             FfiConverterString.write(msg, into: &buf)
             
         }
@@ -19786,750 +19728,6 @@ public func FfiConverterTypeEncryptionSystem_lower(_ value: EncryptionSystem) ->
 
 
 extension EncryptionSystem: Equatable, Hashable {}
-
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-
-public enum ErrorKind {
-    
-    /**
-     * `M_BAD_ALIAS`
-     *
-     * One or more [room aliases] within the `m.room.canonical_alias` event do
-     * not point to the room ID for which the state event is to be sent to.
-     *
-     * [room aliases]: https://spec.matrix.org/latest/client-server-api/#room-aliases
-     */
-    case badAlias
-    /**
-     * `M_BAD_JSON`
-     *
-     * The request contained valid JSON, but it was malformed in some way, e.g.
-     * missing required keys, invalid values for keys.
-     */
-    case badJson
-    /**
-     * `M_BAD_STATE`
-     *
-     * The state change requested cannot be performed, such as attempting to
-     * unban a user who is not banned.
-     */
-    case badState
-    /**
-     * `M_BAD_STATUS`
-     *
-     * The application service returned a bad status.
-     */
-    case badStatus(
-        /**
-         * The HTTP status code of the response.
-         */status: UInt16?, 
-        /**
-         * The body of the response.
-         */body: String?
-    )
-    /**
-     * `M_CANNOT_LEAVE_SERVER_NOTICE_ROOM`
-     *
-     * The user is unable to reject an invite to join the [server notices]
-     * room.
-     *
-     * [server notices]: https://spec.matrix.org/latest/client-server-api/#server-notices
-     */
-    case cannotLeaveServerNoticeRoom
-    /**
-     * `M_CANNOT_OVERWRITE_MEDIA`
-     *
-     * The [`create_content_async`] endpoint was called with a media ID that
-     * already has content.
-     *
-     * [`create_content_async`]: crate::media::create_content_async
-     */
-    case cannotOverwriteMedia
-    /**
-     * `M_CAPTCHA_INVALID`
-     *
-     * The Captcha provided did not match what was expected.
-     */
-    case captchaInvalid
-    /**
-     * `M_CAPTCHA_NEEDED`
-     *
-     * A Captcha is required to complete the request.
-     */
-    case captchaNeeded
-    /**
-     * `M_CONNECTION_FAILED`
-     *
-     * The connection to the application service failed.
-     */
-    case connectionFailed
-    /**
-     * `M_CONNECTION_TIMEOUT`
-     *
-     * The connection to the application service timed out.
-     */
-    case connectionTimeout
-    /**
-     * `M_DUPLICATE_ANNOTATION`
-     *
-     * The request is an attempt to send a [duplicate annotation].
-     *
-     * [duplicate annotation]: https://spec.matrix.org/latest/client-server-api/#avoiding-duplicate-annotations
-     */
-    case duplicateAnnotation
-    /**
-     * `M_EXCLUSIVE`
-     *
-     * The resource being requested is reserved by an application service, or
-     * the application service making the request has not created the
-     * resource.
-     */
-    case exclusive
-    /**
-     * `M_FORBIDDEN`
-     *
-     * Forbidden access, e.g. joining a room without permission, failed login.
-     */
-    case forbidden
-    /**
-     * `M_GUEST_ACCESS_FORBIDDEN`
-     *
-     * The room or resource does not permit [guests] to access it.
-     *
-     * [guests]: https://spec.matrix.org/latest/client-server-api/#guest-access
-     */
-    case guestAccessForbidden
-    /**
-     * `M_INCOMPATIBLE_ROOM_VERSION`
-     *
-     * The client attempted to join a room that has a version the server does
-     * not support.
-     */
-    case incompatibleRoomVersion(
-        /**
-         * The room's version.
-         */roomVersion: String
-    )
-    /**
-     * `M_INVALID_PARAM`
-     *
-     * A parameter that was specified has the wrong value. For example, the
-     * server expected an integer and instead received a string.
-     */
-    case invalidParam
-    /**
-     * `M_INVALID_ROOM_STATE`
-     *
-     * The initial state implied by the parameters to the [`create_room`]
-     * request is invalid, e.g. the user's `power_level` is set below that
-     * necessary to set the room name.
-     *
-     * [`create_room`]: crate::room::create_room
-     */
-    case invalidRoomState
-    /**
-     * `M_INVALID_USERNAME`
-     *
-     * The desired user name is not valid.
-     */
-    case invalidUsername
-    /**
-     * `M_LIMIT_EXCEEDED`
-     *
-     * The request has been refused due to [rate limiting]: too many requests
-     * have been sent in a short period of time.
-     *
-     * [rate limiting]: https://spec.matrix.org/latest/client-server-api/#rate-limiting
-     */
-    case limitExceeded(
-        /**
-         * How long a client should wait before they can try again.
-         */retryAfterMs: UInt64?
-    )
-    /**
-     * `M_MISSING_PARAM`
-     *
-     * A required parameter was missing from the request.
-     */
-    case missingParam
-    /**
-     * `M_MISSING_TOKEN`
-     *
-     * No [access token] was specified for the request, but one is required.
-     *
-     * [access token]: https://spec.matrix.org/latest/client-server-api/#client-authentication
-     */
-    case missingToken
-    /**
-     * `M_NOT_FOUND`
-     *
-     * No resource was found for this request.
-     */
-    case notFound
-    /**
-     * `M_NOT_JSON`
-     *
-     * The request did not contain valid JSON.
-     */
-    case notJson
-    /**
-     * `M_NOT_YET_UPLOADED`
-     *
-     * An `mxc:` URI generated with the [`create_mxc_uri`] endpoint was used
-     * and the content is not yet available.
-     *
-     * [`create_mxc_uri`]: crate::media::create_mxc_uri
-     */
-    case notYetUploaded
-    /**
-     * `M_RESOURCE_LIMIT_EXCEEDED`
-     *
-     * The request cannot be completed because the homeserver has reached a
-     * resource limit imposed on it. For example, a homeserver held in a
-     * shared hosting environment may reach a resource limit if it starts
-     * using too much memory or disk space.
-     */
-    case resourceLimitExceeded(
-        /**
-         * A URI giving a contact method for the server administrator.
-         */adminContact: String
-    )
-    /**
-     * `M_ROOM_IN_USE`
-     *
-     * The [room alias] specified in the [`create_room`] request is already
-     * taken.
-     *
-     * [`create_room`]: crate::room::create_room
-     * [room alias]: https://spec.matrix.org/latest/client-server-api/#room-aliases
-     */
-    case roomInUse
-    /**
-     * `M_SERVER_NOT_TRUSTED`
-     *
-     * The client's request used a third-party server, e.g. identity server,
-     * that this server does not trust.
-     */
-    case serverNotTrusted
-    /**
-     * `M_THREEPID_AUTH_FAILED`
-     *
-     * Authentication could not be performed on the [third-party identifier].
-     *
-     * [third-party identifier]: https://spec.matrix.org/latest/client-server-api/#adding-account-administrative-contact-information
-     */
-    case threepidAuthFailed
-    /**
-     * `M_THREEPID_DENIED`
-     *
-     * The server does not permit this [third-party identifier]. This may
-     * happen if the server only permits, for example, email addresses from
-     * a particular domain.
-     *
-     * [third-party identifier]: https://spec.matrix.org/latest/client-server-api/#adding-account-administrative-contact-information
-     */
-    case threepidDenied
-    /**
-     * `M_THREEPID_IN_USE`
-     *
-     * The [third-party identifier] is already in use by another user.
-     *
-     * [third-party identifier]: https://spec.matrix.org/latest/client-server-api/#adding-account-administrative-contact-information
-     */
-    case threepidInUse
-    /**
-     * `M_THREEPID_MEDIUM_NOT_SUPPORTED`
-     *
-     * The homeserver does not support adding a [third-party identifier] of the
-     * given medium.
-     *
-     * [third-party identifier]: https://spec.matrix.org/latest/client-server-api/#adding-account-administrative-contact-information
-     */
-    case threepidMediumNotSupported
-    /**
-     * `M_THREEPID_NOT_FOUND`
-     *
-     * No account matching the given [third-party identifier] could be found.
-     *
-     * [third-party identifier]: https://spec.matrix.org/latest/client-server-api/#adding-account-administrative-contact-information
-     */
-    case threepidNotFound
-    /**
-     * `M_TOO_LARGE`
-     *
-     * The request or entity was too large.
-     */
-    case tooLarge
-    /**
-     * `M_UNABLE_TO_AUTHORISE_JOIN`
-     *
-     * The room is [restricted] and none of the conditions can be validated by
-     * the homeserver. This can happen if the homeserver does not know
-     * about any of the rooms listed as conditions, for example.
-     *
-     * [restricted]: https://spec.matrix.org/latest/client-server-api/#restricted-rooms
-     */
-    case unableToAuthorizeJoin
-    /**
-     * `M_UNABLE_TO_GRANT_JOIN`
-     *
-     * A different server should be attempted for the join. This is typically
-     * because the resident server can see that the joining user satisfies
-     * one or more conditions, such as in the case of [restricted rooms],
-     * but the resident server would be unable to meet the authorization
-     * rules.
-     *
-     * [restricted rooms]: https://spec.matrix.org/latest/client-server-api/#restricted-rooms
-     */
-    case unableToGrantJoin
-    /**
-     * `M_UNAUTHORIZED`
-     *
-     * The request was not correctly authorized. Usually due to login failures.
-     */
-    case unauthorized
-    /**
-     * `M_UNKNOWN`
-     *
-     * An unknown error has occurred.
-     */
-    case unknown
-    /**
-     * `M_UNKNOWN_TOKEN`
-     *
-     * The [access or refresh token] specified was not recognized.
-     *
-     * [access or refresh token]: https://spec.matrix.org/latest/client-server-api/#client-authentication
-     */
-    case unknownToken(
-        /**
-         * If this is `true`, the client is in a "[soft logout]" state, i.e.
-         * the server requires re-authentication but the session is not
-         * invalidated. The client can acquire a new access token by
-         * specifying the device ID it is already using to the login API.
-         *
-         * [soft logout]: https://spec.matrix.org/latest/client-server-api/#soft-logout
-         */softLogout: Bool
-    )
-    /**
-     * `M_UNRECOGNIZED`
-     *
-     * The server did not understand the request.
-     *
-     * This is expected to be returned with a 404 HTTP status code if the
-     * endpoint is not implemented or a 405 HTTP status code if the
-     * endpoint is implemented, but the incorrect HTTP method is used.
-     */
-    case unrecognized
-    /**
-     * `M_UNSUPPORTED_ROOM_VERSION`
-     *
-     * The request to [`create_room`] used a room version that the server does
-     * not support.
-     *
-     * [`create_room`]: crate::room::create_room
-     */
-    case unsupportedRoomVersion
-    /**
-     * `M_URL_NOT_SET`
-     *
-     * The application service doesn't have a URL configured.
-     */
-    case urlNotSet
-    /**
-     * `M_USER_DEACTIVATED`
-     *
-     * The user ID associated with the request has been deactivated.
-     */
-    case userDeactivated
-    /**
-     * `M_USER_IN_USE`
-     *
-     * The desired user ID is already taken.
-     */
-    case userInUse
-    /**
-     * `M_USER_LOCKED`
-     *
-     * The account has been [locked] and cannot be used at this time.
-     *
-     * [locked]: https://spec.matrix.org/latest/client-server-api/#account-locking
-     */
-    case userLocked
-    /**
-     * `M_USER_SUSPENDED`
-     *
-     * The account has been [suspended] and can only be used for limited
-     * actions at this time.
-     *
-     * [suspended]: https://spec.matrix.org/latest/client-server-api/#account-suspension
-     */
-    case userSuspended
-    /**
-     * `M_WEAK_PASSWORD`
-     *
-     * The password was [rejected] by the server for being too weak.
-     *
-     * [rejected]: https://spec.matrix.org/latest/client-server-api/#notes-on-password-management
-     */
-    case weakPassword
-    /**
-     * `M_WRONG_ROOM_KEYS_VERSION`
-     *
-     * The version of the [room keys backup] provided in the request does not
-     * match the current backup version.
-     *
-     * [room keys backup]: https://spec.matrix.org/latest/client-server-api/#server-side-key-backups
-     */
-    case wrongRoomKeysVersion(
-        /**
-         * The currently active backup version.
-         */currentVersion: String?
-    )
-    /**
-     * A custom API error.
-     */
-    case custom(errcode: String
-    )
-}
-
-
-public struct FfiConverterTypeErrorKind: FfiConverterRustBuffer {
-    typealias SwiftType = ErrorKind
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ErrorKind {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .badAlias
-        
-        case 2: return .badJson
-        
-        case 3: return .badState
-        
-        case 4: return .badStatus(status: try FfiConverterOptionUInt16.read(from: &buf), body: try FfiConverterOptionString.read(from: &buf)
-        )
-        
-        case 5: return .cannotLeaveServerNoticeRoom
-        
-        case 6: return .cannotOverwriteMedia
-        
-        case 7: return .captchaInvalid
-        
-        case 8: return .captchaNeeded
-        
-        case 9: return .connectionFailed
-        
-        case 10: return .connectionTimeout
-        
-        case 11: return .duplicateAnnotation
-        
-        case 12: return .exclusive
-        
-        case 13: return .forbidden
-        
-        case 14: return .guestAccessForbidden
-        
-        case 15: return .incompatibleRoomVersion(roomVersion: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 16: return .invalidParam
-        
-        case 17: return .invalidRoomState
-        
-        case 18: return .invalidUsername
-        
-        case 19: return .limitExceeded(retryAfterMs: try FfiConverterOptionUInt64.read(from: &buf)
-        )
-        
-        case 20: return .missingParam
-        
-        case 21: return .missingToken
-        
-        case 22: return .notFound
-        
-        case 23: return .notJson
-        
-        case 24: return .notYetUploaded
-        
-        case 25: return .resourceLimitExceeded(adminContact: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 26: return .roomInUse
-        
-        case 27: return .serverNotTrusted
-        
-        case 28: return .threepidAuthFailed
-        
-        case 29: return .threepidDenied
-        
-        case 30: return .threepidInUse
-        
-        case 31: return .threepidMediumNotSupported
-        
-        case 32: return .threepidNotFound
-        
-        case 33: return .tooLarge
-        
-        case 34: return .unableToAuthorizeJoin
-        
-        case 35: return .unableToGrantJoin
-        
-        case 36: return .unauthorized
-        
-        case 37: return .unknown
-        
-        case 38: return .unknownToken(softLogout: try FfiConverterBool.read(from: &buf)
-        )
-        
-        case 39: return .unrecognized
-        
-        case 40: return .unsupportedRoomVersion
-        
-        case 41: return .urlNotSet
-        
-        case 42: return .userDeactivated
-        
-        case 43: return .userInUse
-        
-        case 44: return .userLocked
-        
-        case 45: return .userSuspended
-        
-        case 46: return .weakPassword
-        
-        case 47: return .wrongRoomKeysVersion(currentVersion: try FfiConverterOptionString.read(from: &buf)
-        )
-        
-        case 48: return .custom(errcode: try FfiConverterString.read(from: &buf)
-        )
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: ErrorKind, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .badAlias:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .badJson:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .badState:
-            writeInt(&buf, Int32(3))
-        
-        
-        case let .badStatus(status,body):
-            writeInt(&buf, Int32(4))
-            FfiConverterOptionUInt16.write(status, into: &buf)
-            FfiConverterOptionString.write(body, into: &buf)
-            
-        
-        case .cannotLeaveServerNoticeRoom:
-            writeInt(&buf, Int32(5))
-        
-        
-        case .cannotOverwriteMedia:
-            writeInt(&buf, Int32(6))
-        
-        
-        case .captchaInvalid:
-            writeInt(&buf, Int32(7))
-        
-        
-        case .captchaNeeded:
-            writeInt(&buf, Int32(8))
-        
-        
-        case .connectionFailed:
-            writeInt(&buf, Int32(9))
-        
-        
-        case .connectionTimeout:
-            writeInt(&buf, Int32(10))
-        
-        
-        case .duplicateAnnotation:
-            writeInt(&buf, Int32(11))
-        
-        
-        case .exclusive:
-            writeInt(&buf, Int32(12))
-        
-        
-        case .forbidden:
-            writeInt(&buf, Int32(13))
-        
-        
-        case .guestAccessForbidden:
-            writeInt(&buf, Int32(14))
-        
-        
-        case let .incompatibleRoomVersion(roomVersion):
-            writeInt(&buf, Int32(15))
-            FfiConverterString.write(roomVersion, into: &buf)
-            
-        
-        case .invalidParam:
-            writeInt(&buf, Int32(16))
-        
-        
-        case .invalidRoomState:
-            writeInt(&buf, Int32(17))
-        
-        
-        case .invalidUsername:
-            writeInt(&buf, Int32(18))
-        
-        
-        case let .limitExceeded(retryAfterMs):
-            writeInt(&buf, Int32(19))
-            FfiConverterOptionUInt64.write(retryAfterMs, into: &buf)
-            
-        
-        case .missingParam:
-            writeInt(&buf, Int32(20))
-        
-        
-        case .missingToken:
-            writeInt(&buf, Int32(21))
-        
-        
-        case .notFound:
-            writeInt(&buf, Int32(22))
-        
-        
-        case .notJson:
-            writeInt(&buf, Int32(23))
-        
-        
-        case .notYetUploaded:
-            writeInt(&buf, Int32(24))
-        
-        
-        case let .resourceLimitExceeded(adminContact):
-            writeInt(&buf, Int32(25))
-            FfiConverterString.write(adminContact, into: &buf)
-            
-        
-        case .roomInUse:
-            writeInt(&buf, Int32(26))
-        
-        
-        case .serverNotTrusted:
-            writeInt(&buf, Int32(27))
-        
-        
-        case .threepidAuthFailed:
-            writeInt(&buf, Int32(28))
-        
-        
-        case .threepidDenied:
-            writeInt(&buf, Int32(29))
-        
-        
-        case .threepidInUse:
-            writeInt(&buf, Int32(30))
-        
-        
-        case .threepidMediumNotSupported:
-            writeInt(&buf, Int32(31))
-        
-        
-        case .threepidNotFound:
-            writeInt(&buf, Int32(32))
-        
-        
-        case .tooLarge:
-            writeInt(&buf, Int32(33))
-        
-        
-        case .unableToAuthorizeJoin:
-            writeInt(&buf, Int32(34))
-        
-        
-        case .unableToGrantJoin:
-            writeInt(&buf, Int32(35))
-        
-        
-        case .unauthorized:
-            writeInt(&buf, Int32(36))
-        
-        
-        case .unknown:
-            writeInt(&buf, Int32(37))
-        
-        
-        case let .unknownToken(softLogout):
-            writeInt(&buf, Int32(38))
-            FfiConverterBool.write(softLogout, into: &buf)
-            
-        
-        case .unrecognized:
-            writeInt(&buf, Int32(39))
-        
-        
-        case .unsupportedRoomVersion:
-            writeInt(&buf, Int32(40))
-        
-        
-        case .urlNotSet:
-            writeInt(&buf, Int32(41))
-        
-        
-        case .userDeactivated:
-            writeInt(&buf, Int32(42))
-        
-        
-        case .userInUse:
-            writeInt(&buf, Int32(43))
-        
-        
-        case .userLocked:
-            writeInt(&buf, Int32(44))
-        
-        
-        case .userSuspended:
-            writeInt(&buf, Int32(45))
-        
-        
-        case .weakPassword:
-            writeInt(&buf, Int32(46))
-        
-        
-        case let .wrongRoomKeysVersion(currentVersion):
-            writeInt(&buf, Int32(47))
-            FfiConverterOptionString.write(currentVersion, into: &buf)
-            
-        
-        case let .custom(errcode):
-            writeInt(&buf, Int32(48))
-            FfiConverterString.write(errcode, into: &buf)
-            
-        }
-    }
-}
-
-
-public func FfiConverterTypeErrorKind_lift(_ buf: RustBuffer) throws -> ErrorKind {
-    return try FfiConverterTypeErrorKind.lift(buf)
-}
-
-public func FfiConverterTypeErrorKind_lower(_ value: ErrorKind) -> RustBuffer {
-    return FfiConverterTypeErrorKind.lower(value)
-}
-
-
-
-extension ErrorKind: Equatable, Hashable {}
 
 
 
@@ -29418,27 +28616,6 @@ fileprivate struct FfiConverterOptionUInt8: FfiConverterRustBuffer {
     }
 }
 
-fileprivate struct FfiConverterOptionUInt16: FfiConverterRustBuffer {
-    typealias SwiftType = UInt16?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterUInt16.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterUInt16.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
 fileprivate struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
     typealias SwiftType = UInt32?
 
@@ -32496,9 +31673,6 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_enable_send_queue() != 23914) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_forget() != 37840) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_get_power_levels() != 54094) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -32632,6 +31806,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_send_raw() != 20486) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_set_access_rules() != 60542) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_set_is_favourite() != 64403) {
@@ -32784,7 +31961,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_membership() != 1596) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_preview_room() != 62868) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_preview_room() != 32277) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_room_info() != 32985) {
@@ -32809,9 +31986,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roommembersiterator_next_chunk() != 23186) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_forget() != 18179) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_info() != 9145) {
@@ -32853,10 +32027,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_sessionverificationcontroller_decline_verification() != 64345) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_sessionverificationcontroller_request_device_verification() != 4777) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_sessionverificationcontroller_request_user_verification() != 26149) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_sessionverificationcontroller_request_verification() != 17229) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_sessionverificationcontroller_set_delegate() != 42324) {
