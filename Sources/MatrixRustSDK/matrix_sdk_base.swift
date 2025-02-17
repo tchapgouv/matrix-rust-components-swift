@@ -478,64 +478,6 @@ public func FfiConverterTypeRoomAccessRulesEventContent_lower(_ value: RoomAcces
     return FfiConverterTypeRoomAccessRulesEventContent.lower(value)
 }
 
-
-/**
- * RoomAccessRulesString custom StateEvent:
- */
-public struct RoomAccessRulesStringEventContent {
-    /**
-     * The rule value.
-     */
-    public var rule: String
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(
-        /**
-         * The rule value.
-         */rule: String) {
-        self.rule = rule
-    }
-}
-
-
-
-extension RoomAccessRulesStringEventContent: Equatable, Hashable {
-    public static func ==(lhs: RoomAccessRulesStringEventContent, rhs: RoomAccessRulesStringEventContent) -> Bool {
-        if lhs.rule != rhs.rule {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(rule)
-    }
-}
-
-
-public struct FfiConverterTypeRoomAccessRulesStringEventContent: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RoomAccessRulesStringEventContent {
-        return
-            try RoomAccessRulesStringEventContent(
-                rule: FfiConverterString.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: RoomAccessRulesStringEventContent, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.rule, into: &buf)
-    }
-}
-
-
-public func FfiConverterTypeRoomAccessRulesStringEventContent_lift(_ buf: RustBuffer) throws -> RoomAccessRulesStringEventContent {
-    return try FfiConverterTypeRoomAccessRulesStringEventContent.lift(buf)
-}
-
-public func FfiConverterTypeRoomAccessRulesStringEventContent_lower(_ value: RoomAccessRulesStringEventContent) -> RustBuffer {
-    return FfiConverterTypeRoomAccessRulesStringEventContent.lower(value)
-}
-
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
