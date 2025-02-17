@@ -5163,6 +5163,11 @@ public protocol RoomProtocol : AnyObject {
      */
     func enableSendQueue(enable: Bool) 
     
+    /**
+     * Get the room access rules
+     */
+    func getAccessRules() async throws  -> RoomAccessRules
+    
     func getPowerLevels() async throws  -> RoomPowerLevels
     
     /**
@@ -5403,7 +5408,7 @@ public protocol RoomProtocol : AnyObject {
     /**
      * Sets the room access rules.
      */
-    func setAccessRules(rule: String) async throws 
+    func setAccessRules(rule: RoomAccessRules) async throws 
     
     func setIsFavourite(isFavourite: Bool, tagOrder: Double?) async throws 
     
@@ -5937,6 +5942,26 @@ open func enableSendQueue(enable: Bool) {try! rustCall() {
         FfiConverterBool.lower(enable),$0
     )
 }
+}
+    
+    /**
+     * Get the room access rules
+     */
+open func getAccessRules()async throws  -> RoomAccessRules {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_room_get_access_rules(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeRoomAccessRules_lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
 }
     
 open func getPowerLevels()async throws  -> RoomPowerLevels {
@@ -6715,13 +6740,13 @@ open func sendRaw(eventType: String, content: String)async throws  {
     /**
      * Sets the room access rules.
      */
-open func setAccessRules(rule: String)async throws  {
+open func setAccessRules(rule: RoomAccessRules)async throws  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_room_set_access_rules(
                     self.uniffiClonePointer(),
-                    FfiConverterString.lower(rule)
+                    FfiConverterTypeRoomAccessRules_lower(rule)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -12543,7 +12568,7 @@ public func FfiConverterTypeComposerDraft_lower(_ value: ComposerDraft) -> RustB
 
 
 public struct CreateRoomParameters {
-    public var accessRules: String?
+    public var accessRules: RoomAccessRules?
     public var name: String?
     public var topic: String?
     public var isEncrypted: Bool
@@ -12558,7 +12583,7 @@ public struct CreateRoomParameters {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(accessRules: String? = nil, name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, canonicalAlias: String? = nil) {
+    public init(accessRules: RoomAccessRules? = nil, name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, canonicalAlias: String? = nil) {
         self.accessRules = accessRules
         self.name = name
         self.topic = topic
@@ -12638,7 +12663,7 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CreateRoomParameters {
         return
             try CreateRoomParameters(
-                accessRules: FfiConverterOptionString.read(from: &buf), 
+                accessRules: FfiConverterOptionTypeRoomAccessRules.read(from: &buf), 
                 name: FfiConverterOptionString.read(from: &buf), 
                 topic: FfiConverterOptionString.read(from: &buf), 
                 isEncrypted: FfiConverterBool.read(from: &buf), 
@@ -12654,7 +12679,7 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: CreateRoomParameters, into buf: inout [UInt8]) {
-        FfiConverterOptionString.write(value.accessRules, into: &buf)
+        FfiConverterOptionTypeRoomAccessRules.write(value.accessRules, into: &buf)
         FfiConverterOptionString.write(value.name, into: &buf)
         FfiConverterOptionString.write(value.topic, into: &buf)
         FfiConverterBool.write(value.isEncrypted, into: &buf)
@@ -29897,6 +29922,27 @@ fileprivate struct FfiConverterOptionDictionaryStringInt64: FfiConverterRustBuff
     }
 }
 
+fileprivate struct FfiConverterOptionTypeRoomAccessRules: FfiConverterRustBuffer {
+    typealias SwiftType = RoomAccessRules?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeRoomAccessRules.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeRoomAccessRules.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionTypeEventItemOrigin: FfiConverterRustBuffer {
     typealias SwiftType = EventItemOrigin?
 
@@ -30691,6 +30737,8 @@ fileprivate struct FfiConverterDictionaryStringSequenceString: FfiConverterRustB
         return dict
     }
 }
+
+
 
 
 
@@ -31673,6 +31721,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_enable_send_queue() != 23914) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_access_rules() != 7928) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_get_power_levels() != 54094) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -31808,7 +31859,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_send_raw() != 20486) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_set_access_rules() != 60542) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_set_access_rules() != 55392) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_set_is_favourite() != 64403) {
