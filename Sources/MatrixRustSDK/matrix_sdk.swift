@@ -736,6 +736,76 @@ public func FfiConverterTypeRoomPowerLevelChanges_lower(_ value: RoomPowerLevelC
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * The rule used for users wishing to join this room.
+ *
+ * This type can hold an arbitrary string. To check for values that are not available as a
+ * documented variant here, use its string representation, obtained through `.as_str()`.
+ */
+
+public enum AccessRule {
+    
+    /**
+     * A user who wishes to join the room must first receive an invite to the room from someone
+     * already inside of the room.
+     */
+    case restricted
+    /**
+     * Users can join the room if they are invited, or they can request an invite to the room.
+     *
+     * They can be allowed (invited) or denied (kicked/banned) access.
+     */
+    case unrestricted
+}
+
+
+public struct FfiConverterTypeAccessRule: FfiConverterRustBuffer {
+    typealias SwiftType = AccessRule
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccessRule {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .restricted
+        
+        case 2: return .unrestricted
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AccessRule, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .restricted:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .unrestricted:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+public func FfiConverterTypeAccessRule_lift(_ buf: RustBuffer) throws -> AccessRule {
+    return try FfiConverterTypeAccessRule.lift(buf)
+}
+
+public func FfiConverterTypeAccessRule_lower(_ value: AccessRule) -> RustBuffer {
+    return FfiConverterTypeAccessRule.lower(value)
+}
+
+
+
+extension AccessRule: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Settings for end-to-end encryption features.
  */
 

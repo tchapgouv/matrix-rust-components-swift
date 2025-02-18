@@ -5166,7 +5166,7 @@ public protocol RoomProtocol : AnyObject {
     /**
      * Get the room access rules
      */
-    func getAccessRules() async throws  -> RoomAccessRules
+    func getAccessRules() async throws  -> AccessRule
     
     func getPowerLevels() async throws  -> RoomPowerLevels
     
@@ -5408,7 +5408,7 @@ public protocol RoomProtocol : AnyObject {
     /**
      * Sets the room access rules.
      */
-    func setAccessRules(rule: RoomAccessRules) async throws 
+    func setAccessRules(rule: AccessRule) async throws 
     
     func setIsFavourite(isFavourite: Bool, tagOrder: Double?) async throws 
     
@@ -5947,7 +5947,7 @@ open func enableSendQueue(enable: Bool) {try! rustCall() {
     /**
      * Get the room access rules
      */
-open func getAccessRules()async throws  -> RoomAccessRules {
+open func getAccessRules()async throws  -> AccessRule {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
@@ -5959,7 +5959,7 @@ open func getAccessRules()async throws  -> RoomAccessRules {
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeRoomAccessRules_lift,
+            liftFunc: FfiConverterTypeAccessRule_lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
 }
@@ -6740,13 +6740,13 @@ open func sendRaw(eventType: String, content: String)async throws  {
     /**
      * Sets the room access rules.
      */
-open func setAccessRules(rule: RoomAccessRules)async throws  {
+open func setAccessRules(rule: AccessRule)async throws  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_room_set_access_rules(
                     self.uniffiClonePointer(),
-                    FfiConverterTypeRoomAccessRules_lower(rule)
+                    FfiConverterTypeAccessRule_lower(rule)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -12568,7 +12568,7 @@ public func FfiConverterTypeComposerDraft_lower(_ value: ComposerDraft) -> RustB
 
 
 public struct CreateRoomParameters {
-    public var accessRules: RoomAccessRules?
+    public var accessRulesOverride: AccessRule?
     public var name: String?
     public var topic: String?
     public var isEncrypted: Bool
@@ -12583,8 +12583,8 @@ public struct CreateRoomParameters {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(accessRules: RoomAccessRules? = nil, name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, canonicalAlias: String? = nil) {
-        self.accessRules = accessRules
+    public init(accessRulesOverride: AccessRule? = nil, name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, canonicalAlias: String? = nil) {
+        self.accessRulesOverride = accessRulesOverride
         self.name = name
         self.topic = topic
         self.isEncrypted = isEncrypted
@@ -12603,7 +12603,7 @@ public struct CreateRoomParameters {
 
 extension CreateRoomParameters: Equatable, Hashable {
     public static func ==(lhs: CreateRoomParameters, rhs: CreateRoomParameters) -> Bool {
-        if lhs.accessRules != rhs.accessRules {
+        if lhs.accessRulesOverride != rhs.accessRulesOverride {
             return false
         }
         if lhs.name != rhs.name {
@@ -12643,7 +12643,7 @@ extension CreateRoomParameters: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(accessRules)
+        hasher.combine(accessRulesOverride)
         hasher.combine(name)
         hasher.combine(topic)
         hasher.combine(isEncrypted)
@@ -12663,7 +12663,7 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CreateRoomParameters {
         return
             try CreateRoomParameters(
-                accessRules: FfiConverterOptionTypeRoomAccessRules.read(from: &buf), 
+                accessRulesOverride: FfiConverterOptionTypeAccessRule.read(from: &buf), 
                 name: FfiConverterOptionString.read(from: &buf), 
                 topic: FfiConverterOptionString.read(from: &buf), 
                 isEncrypted: FfiConverterBool.read(from: &buf), 
@@ -12679,7 +12679,7 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: CreateRoomParameters, into buf: inout [UInt8]) {
-        FfiConverterOptionTypeRoomAccessRules.write(value.accessRules, into: &buf)
+        FfiConverterOptionTypeAccessRule.write(value.accessRulesOverride, into: &buf)
         FfiConverterOptionString.write(value.name, into: &buf)
         FfiConverterOptionString.write(value.topic, into: &buf)
         FfiConverterBool.write(value.isEncrypted, into: &buf)
@@ -29922,8 +29922,8 @@ fileprivate struct FfiConverterOptionDictionaryStringInt64: FfiConverterRustBuff
     }
 }
 
-fileprivate struct FfiConverterOptionTypeRoomAccessRules: FfiConverterRustBuffer {
-    typealias SwiftType = RoomAccessRules?
+fileprivate struct FfiConverterOptionTypeAccessRule: FfiConverterRustBuffer {
+    typealias SwiftType = AccessRule?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
@@ -29931,13 +29931,13 @@ fileprivate struct FfiConverterOptionTypeRoomAccessRules: FfiConverterRustBuffer
             return
         }
         writeInt(&buf, Int8(1))
-        FfiConverterTypeRoomAccessRules.write(value, into: &buf)
+        FfiConverterTypeAccessRule.write(value, into: &buf)
     }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
-        case 1: return try FfiConverterTypeRoomAccessRules.read(from: &buf)
+        case 1: return try FfiConverterTypeAccessRule.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -31721,7 +31721,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_enable_send_queue() != 23914) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_access_rules() != 7928) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_access_rules() != 11523) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_get_power_levels() != 54094) {
@@ -31859,7 +31859,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_send_raw() != 20486) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_set_access_rules() != 55392) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_set_access_rules() != 18620) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_set_is_favourite() != 64403) {
