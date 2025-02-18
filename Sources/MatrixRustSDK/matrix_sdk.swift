@@ -549,6 +549,66 @@ public func FfiConverterTypeOidcAuthorizationData_lower(_ value: OidcAuthorizati
 
 
 /**
+ * The content of an `m.room.join_rules` event.
+ *
+ * Describes how users are allowed to join the room.
+ */
+public struct RoomAccessRulesEventContent {
+    /**
+     * The type of rules used for users wishing to join this room.
+     */
+    public var accessRule: AccessRule
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The type of rules used for users wishing to join this room.
+         */accessRule: AccessRule) {
+        self.accessRule = accessRule
+    }
+}
+
+
+
+extension RoomAccessRulesEventContent: Equatable, Hashable {
+    public static func ==(lhs: RoomAccessRulesEventContent, rhs: RoomAccessRulesEventContent) -> Bool {
+        if lhs.accessRule != rhs.accessRule {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(accessRule)
+    }
+}
+
+
+public struct FfiConverterTypeRoomAccessRulesEventContent: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RoomAccessRulesEventContent {
+        return
+            try RoomAccessRulesEventContent(
+                accessRule: FfiConverterTypeAccessRule.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RoomAccessRulesEventContent, into buf: inout [UInt8]) {
+        FfiConverterTypeAccessRule.write(value.accessRule, into: &buf)
+    }
+}
+
+
+public func FfiConverterTypeRoomAccessRulesEventContent_lift(_ buf: RustBuffer) throws -> RoomAccessRulesEventContent {
+    return try FfiConverterTypeRoomAccessRulesEventContent.lift(buf)
+}
+
+public func FfiConverterTypeRoomAccessRulesEventContent_lower(_ value: RoomAccessRulesEventContent) -> RustBuffer {
+    return FfiConverterTypeRoomAccessRulesEventContent.lower(value)
+}
+
+
+/**
  * A set of common power levels required for various operations within a room,
  * that can be applied as a single operation. When updating these
  * settings, any levels that are `None` will remain unchanged.
