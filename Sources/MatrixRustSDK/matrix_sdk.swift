@@ -549,13 +549,13 @@ public func FfiConverterTypeOidcAuthorizationData_lower(_ value: OidcAuthorizati
 
 
 /**
- * The content of an `m.room.join_rules` event.
+ * The content of an `im.vector.room.access_rules` event.
  *
- * Describes how users are allowed to join the room.
+ * Describes how external users are allowed to join the room.
  */
 public struct RoomAccessRulesEventContent {
     /**
-     * The type of rules used for users wishing to join this room.
+     * The type of rules used for external users wishing to join this room.
      */
     public var accessRule: AccessRule
 
@@ -563,7 +563,7 @@ public struct RoomAccessRulesEventContent {
     // declare one manually.
     public init(
         /**
-         * The type of rules used for users wishing to join this room.
+         * The type of rules used for external users wishing to join this room.
          */accessRule: AccessRule) {
         self.accessRule = accessRule
     }
@@ -796,21 +796,23 @@ public func FfiConverterTypeRoomPowerLevelChanges_lower(_ value: RoomPowerLevelC
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * The rule used for users wishing to join this room.
- *
- * This type can hold an arbitrary string. To check for values that are not available as a
- * documented variant here, use its string representation, obtained through `.as_str()`.
+ * The rule used for Tchap external users wishing to join this room.
+
  */
 
 public enum AccessRule {
     
     /**
-     * A user who wishes to join the room must first receive an invite to the room from someone
+     * For Direct message, a room between only 2 users.
+     */
+    case direct
+    /**
+     * A external user who wishes to join the room must first receive an invite to the room from someone
      * already inside of the room.
      */
     case restricted
     /**
-     * Users can join the room if they are invited, or they can request an invite to the room.
+     * External users can join the room if they are invited.
      *
      * They can be allowed (invited) or denied (kicked/banned) access.
      */
@@ -825,9 +827,11 @@ public struct FfiConverterTypeAccessRule: FfiConverterRustBuffer {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
-        case 1: return .restricted
+        case 1: return .direct
         
-        case 2: return .unrestricted
+        case 2: return .restricted
+        
+        case 3: return .unrestricted
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -837,12 +841,16 @@ public struct FfiConverterTypeAccessRule: FfiConverterRustBuffer {
         switch value {
         
         
-        case .restricted:
+        case .direct:
             writeInt(&buf, Int32(1))
         
         
-        case .unrestricted:
+        case .restricted:
             writeInt(&buf, Int32(2))
+        
+        
+        case .unrestricted:
+            writeInt(&buf, Int32(3))
         
         }
     }
