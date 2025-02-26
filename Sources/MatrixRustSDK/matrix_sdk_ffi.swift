@@ -21952,7 +21952,7 @@ public enum OtherState {
     )
     case spaceChild
     case spaceParent
-    case custom(eventType: String
+    case custom(eventType: String, eventValue: String
     )
 }
 
@@ -22010,7 +22010,7 @@ public struct FfiConverterTypeOtherState: FfiConverterRustBuffer {
         
         case 20: return .spaceParent
         
-        case 21: return .custom(eventType: try FfiConverterString.read(from: &buf)
+        case 21: return .custom(eventType: try FfiConverterString.read(from: &buf), eventValue: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -22108,9 +22108,10 @@ public struct FfiConverterTypeOtherState: FfiConverterRustBuffer {
             writeInt(&buf, Int32(20))
         
         
-        case let .custom(eventType):
+        case let .custom(eventType,eventValue):
             writeInt(&buf, Int32(21))
             FfiConverterString.write(eventType, into: &buf)
+            FfiConverterString.write(eventValue, into: &buf)
             
         }
     }
