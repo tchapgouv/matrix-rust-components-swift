@@ -1,7 +1,7 @@
 // swift-tools-version:5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 import PackageDescription
-let checksum = "ed4ee3ead082af692a24d673502364c8319b8f93b0c2530fbcd53cfdff212974"
+let checksum = "ce7a517a2ba510f9ed3d9cbfa160ca5fe5170f021d65e660fb7407d7b23a6155"
 let version = "20250227a"
 let localpath = "MatrixSDKFFI.xcframework.zip"
 let package = Package(

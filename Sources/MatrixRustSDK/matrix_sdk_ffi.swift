@@ -24986,6 +24986,8 @@ public enum StateEventContent {
     case roomTopic
     case spaceChild
     case spaceParent
+    case roomAccessRule(rule: String
+    )
 }
 
 
@@ -25038,6 +25040,9 @@ public struct FfiConverterTypeStateEventContent: FfiConverterRustBuffer {
         case 20: return .spaceChild
         
         case 21: return .spaceParent
+        
+        case 22: return .roomAccessRule(rule: try FfiConverterString.read(from: &buf)
+        )
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -25132,6 +25137,11 @@ public struct FfiConverterTypeStateEventContent: FfiConverterRustBuffer {
         case .spaceParent:
             writeInt(&buf, Int32(21))
         
+        
+        case let .roomAccessRule(rule):
+            writeInt(&buf, Int32(22))
+            FfiConverterString.write(rule, into: &buf)
+            
         }
     }
 }
