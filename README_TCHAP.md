@@ -14,14 +14,32 @@ as specified in [README](https://github.com/element-hq/matrix-rust-components-sw
   - matrix-rust-components-swift
   - matrix-rust-sdk
   
-- Set api.github.com in your .netrc file before using cargo + rustup
+- Set api.github.com credentials in your `.netrc` file before using cargo + rustup
+```
+    machine api.github.com
+      login tchapgouv
+      password <your github personal access token with write permissions for `Content` and `Workflows`>
+```
+(See this [Github page](https://docs.github.com/en/rest/releases/releases?apiVersion=2022-11-28#create-a-release) for permissions settings).
+
+- Set Tchapgouv repositories in `Tools/Release/Sources/Release.swift`:
+```
+    var sourceRepo = Repository(owner: "tchapgouv", name: "matrix-rust-sdk")
+    var packageRepo = Repository(owner: "tchapgouv", name: "matrix-rust-components-swift")
+```
 
 - Checkout the main branch of the SDK (or another custom branch to release from).
 
 ## Build the Swift package
 
 - cd to the build script folder: `cd <local dir>/matrix-rust-sdk-tchap/matrix-rust-components-swift/Tools/Release/Sources`
-- launch the build: `swift run release --version 20250115a --local-only`
+- launch the build: 
+
+  - uploading release to Tchapgouv repository:
+    - `swift run release --version 20250115a`
+    
+  - only building local (no upload to Tchapgouv repository):
+    - `swift run release --version 20250115a --local-only`
 
 - This will generate 2 files:
   - the **xcframework structure** (zipped, ready to be embedded into SwiftPackage) located at `<local dir>/matrix-rust-sdk-tchap/matrix-rust-components-swift/MatrixSDKFFI.xcframework.zip`
@@ -69,7 +87,7 @@ Note: the locally linked `matrix-rust-components-swift` package is not in Xcode 
 
 ## Caveat
 
-If generated Mocks/SDK are not up-to-date (becasue checked-out branches in `TchapX/ElementX` and `matrix-rust-sdk` are not synced), you can regenerate mocks:
+If generated Mocks/SDK are not up-to-date (because checked-out branches in `TchapX/ElementX` and `matrix-rust-sdk` are not synced), you can regenerate mocks:
   - for **GeneratedMocks.swift**: `sourcery --config Tools/Sourcery/AutoMockableConfig.yml`
   - for **SDKGeneratedMocks.swift** : `sourcery --sources ../matrix-rust-sdk-tchap/matrix-rust-components-swift/Sources/MatrixRustSDK/matrix_sdk_ffi.swift --templates Tools/Sourcery/SDKAutoMockable.stencil --output ElementX/Sources/Mocks/Generated/SDKGeneratedMocks.swift`
   
