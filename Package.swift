@@ -7,13 +7,14 @@ let url = "https://github.com/tchapgouv/matrix-rust-components-swift/releases/do
 let package = Package(
     name: "MatrixRustSDK",
     platforms: [
-        .iOS(.v16)
+        .iOS(.v15),
+        .macOS(.v12)
     ],
     products: [
-        .library(name: "MatrixRustSDK", type: .dynamic, targets: ["MatrixRustSDK"]),
+        .library(name: "MatrixRustSDK", targets: ["MatrixRustSDK"]),
     ],
     targets: [
-        .binaryTarget(name: "MatrixSDKFFI", path: localpath),
+        .binaryTarget(name: "MatrixSDKFFI", url: url, checksum: checksum),
         .target(name: "MatrixRustSDK", dependencies: [.target(name: "MatrixSDKFFI")])
     ]
 )
