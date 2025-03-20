@@ -818,7 +818,6 @@ public func FfiConverterTypeRoomPowerLevelChanges_lower(_ value: RoomPowerLevelC
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
  * The rule used for Tchap external users wishing to join this room.
-
  */
 
 public enum AccessRule {
@@ -828,8 +827,8 @@ public enum AccessRule {
      */
     case direct
     /**
-     * A external user who wishes to join the room must first receive an invite to the room from someone
-     * already inside of the room.
+     * A external user who wishes to join the room must first receive an invite
+     * to the room from someone already inside of the room.
      */
     case restricted
     /**

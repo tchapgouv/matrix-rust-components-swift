@@ -5231,7 +5231,7 @@ public protocol RoomProtocol : AnyObject {
     /**
      * Get the room access rules
      */
-    func getAccessRules() async throws  -> AccessRule
+    func getAccessRules() throws  -> AccessRule
     
     func getPowerLevels() async throws  -> RoomPowerLevels
     
@@ -6050,21 +6050,11 @@ open func forget()async throws  {
     /**
      * Get the room access rules
      */
-open func getAccessRules()async throws  -> AccessRule {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_room_get_access_rules(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeAccessRule_lift,
-            errorHandler: FfiConverterTypeClientError.lift
-        )
+open func getAccessRules()throws  -> AccessRule {
+    return try  FfiConverterTypeAccessRule_lift(try rustCallWithError(FfiConverterTypeClientError.lift) {
+    uniffi_matrix_sdk_ffi_fn_method_room_get_access_rules(self.uniffiClonePointer(),$0
+    )
+})
 }
     
 open func getPowerLevels()async throws  -> RoomPowerLevels {
@@ -32738,7 +32728,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_forget() != 37840) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_access_rules() != 11523) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_access_rules() != 47222) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_get_power_levels() != 54094) {
