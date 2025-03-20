@@ -581,7 +581,7 @@ public protocol ClientProtocol : AnyObject {
      * Aborts an existing OIDC login operation that might have been cancelled,
      * failed etc.
      */
-    func abortOidcAuth(authorizationData: OidcAuthorizationData) async 
+    func abortOidcAuth(authorizationData: OAuthAuthorizationData) async 
     
     /**
      * Get the content of the event of the given type out of the account data
@@ -622,7 +622,7 @@ public protocol ClientProtocol : AnyObject {
     /**
      * Retrieves an avatar cached from a previous call to [`Self::avatar_url`].
      */
-    func cachedAvatarUrl() throws  -> String?
+    func cachedAvatarUrl() async throws  -> String?
     
     /**
      * Lets the user know whether this is an `m.login.password` based
@@ -693,11 +693,26 @@ public protocol ClientProtocol : AnyObject {
     
     func getMediaThumbnail(mediaSource: MediaSource, width: UInt64, height: UInt64) async throws  -> Data
     
-    func getNotificationSettings()  -> NotificationSettings
+    func getNotificationSettings() async  -> NotificationSettings
     
     func getProfile(userId: String) async throws  -> UserProfile
     
     func getRecentlyVisitedRooms() async throws  -> [String]
+    
+    /**
+     * Get a room by its ID.
+     *
+     * # Arguments
+     *
+     * * `room_id` - The ID of the room to get.
+     *
+     * # Returns
+     *
+     * A `Result` containing an optional room, or a `ClientError`.
+     * This method will not initialize the room's timeline or populate it with
+     * events.
+     */
+    func getRoom(roomId: String) throws  -> Room?
     
     /**
      * Given a room alias, get the preview of a room, to interact with it.
@@ -783,7 +798,7 @@ public protocol ClientProtocol : AnyObject {
     /**
      * Completes the OIDC login process.
      */
-    func loginWithOidcCallback(authorizationData: OidcAuthorizationData, callbackUrl: String) async throws 
+    func loginWithOidcCallback(authorizationData: OAuthAuthorizationData, callbackUrl: String) async throws 
     
     /**
      * Log the current user out.
@@ -899,8 +914,18 @@ public protocol ClientProtocol : AnyObject {
      * view has succeeded, call `login_with_oidc_callback` with the callback it
      * returns. If a failure occurs and a callback isn't available, make sure
      * to call `abort_oidc_auth` to inform the client of this.
+     *
+     * # Arguments
+     *
+     * * `oidc_configuration` - The configuration used to load the credentials
+     * of the client if it is already registered with the authorization
+     * server, or register the client and store its credentials if it isn't.
+     *
+     * * `prompt` - The desired user experience in the web UI. No value means
+     * that the user wishes to login into an existing account, and a value of
+     * `Create` means that the user wishes to register a new account.
      */
-    func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt) async throws  -> OidcAuthorizationData
+    func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt?) async throws  -> OAuthAuthorizationData
     
     func userId() throws  -> String
     
@@ -956,13 +981,13 @@ open class Client:
      * Aborts an existing OIDC login operation that might have been cancelled,
      * failed etc.
      */
-open func abortOidcAuth(authorizationData: OidcAuthorizationData)async  {
+open func abortOidcAuth(authorizationData: OAuthAuthorizationData)async  {
     return
         try!  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_client_abort_oidc_auth(
                     self.uniffiClonePointer(),
-                    FfiConverterTypeOidcAuthorizationData_lower(authorizationData)
+                    FfiConverterTypeOAuthAuthorizationData_lower(authorizationData)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -1089,11 +1114,21 @@ open func awaitRoomRemoteEcho(roomId: String)async throws  -> Room {
     /**
      * Retrieves an avatar cached from a previous call to [`Self::avatar_url`].
      */
-open func cachedAvatarUrl()throws  -> String? {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeClientError.lift) {
-    uniffi_matrix_sdk_ffi_fn_method_client_cached_avatar_url(self.uniffiClonePointer(),$0
-    )
-})
+open func cachedAvatarUrl()async throws  -> String? {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_client_cached_avatar_url(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterOptionString.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
 }
     
     /**
@@ -1337,11 +1372,22 @@ open func getMediaThumbnail(mediaSource: MediaSource, width: UInt64, height: UIn
         )
 }
     
-open func getNotificationSettings() -> NotificationSettings {
-    return try!  FfiConverterTypeNotificationSettings.lift(try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_method_client_get_notification_settings(self.uniffiClonePointer(),$0
-    )
-})
+open func getNotificationSettings()async  -> NotificationSettings {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_client_get_notification_settings(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_pointer,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_pointer,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_pointer,
+            liftFunc: FfiConverterTypeNotificationSettings.lift,
+            errorHandler: nil
+            
+        )
 }
     
 open func getProfile(userId: String)async throws  -> UserProfile {
@@ -1376,6 +1422,27 @@ open func getRecentlyVisitedRooms()async throws  -> [String] {
             liftFunc: FfiConverterSequenceString.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
+}
+    
+    /**
+     * Get a room by its ID.
+     *
+     * # Arguments
+     *
+     * * `room_id` - The ID of the room to get.
+     *
+     * # Returns
+     *
+     * A `Result` containing an optional room, or a `ClientError`.
+     * This method will not initialize the room's timeline or populate it with
+     * events.
+     */
+open func getRoom(roomId: String)throws  -> Room? {
+    return try  FfiConverterOptionTypeRoom.lift(try rustCallWithError(FfiConverterTypeClientError.lift) {
+    uniffi_matrix_sdk_ffi_fn_method_client_get_room(self.uniffiClonePointer(),
+        FfiConverterString.lower(roomId),$0
+    )
+})
 }
     
     /**
@@ -1663,13 +1730,13 @@ open func loginWithEmail(email: String, password: String, initialDeviceName: Str
     /**
      * Completes the OIDC login process.
      */
-open func loginWithOidcCallback(authorizationData: OidcAuthorizationData, callbackUrl: String)async throws  {
+open func loginWithOidcCallback(authorizationData: OAuthAuthorizationData, callbackUrl: String)async throws  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_client_login_with_oidc_callback(
                     self.uniffiClonePointer(),
-                    FfiConverterTypeOidcAuthorizationData_lower(authorizationData),FfiConverterString.lower(callbackUrl)
+                    FfiConverterTypeOAuthAuthorizationData_lower(authorizationData),FfiConverterString.lower(callbackUrl)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -2097,20 +2164,30 @@ open func uploadMedia(mimeType: String, data: Data, progressWatcher: ProgressWat
      * view has succeeded, call `login_with_oidc_callback` with the callback it
      * returns. If a failure occurs and a callback isn't available, make sure
      * to call `abort_oidc_auth` to inform the client of this.
+     *
+     * # Arguments
+     *
+     * * `oidc_configuration` - The configuration used to load the credentials
+     * of the client if it is already registered with the authorization
+     * server, or register the client and store its credentials if it isn't.
+     *
+     * * `prompt` - The desired user experience in the web UI. No value means
+     * that the user wishes to login into an existing account, and a value of
+     * `Create` means that the user wishes to register a new account.
      */
-open func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt)async throws  -> OidcAuthorizationData {
+open func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt?)async throws  -> OAuthAuthorizationData {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_client_url_for_oidc(
                     self.uniffiClonePointer(),
-                    FfiConverterTypeOidcConfiguration.lower(oidcConfiguration),FfiConverterTypeOidcPrompt.lower(prompt)
+                    FfiConverterTypeOidcConfiguration.lower(oidcConfiguration),FfiConverterOptionTypeOidcPrompt.lower(prompt)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_pointer,
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_pointer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeOidcAuthorizationData_lift,
+            liftFunc: FfiConverterTypeOAuthAuthorizationData_lift,
             errorHandler: FfiConverterTypeOidcError.lift
         )
 }
@@ -4446,6 +4523,11 @@ public protocol NotificationSettingsProtocol : AnyObject {
     func setCallEnabled(enabled: Bool) async throws 
     
     /**
+     * Sets a custom push rule with the given actions and conditions.
+     */
+    func setCustomPushRule(ruleId: String, ruleKind: RuleKind, actions: [Action], conditions: [PushCondition]) async throws 
+    
+    /**
      * Set the default room notification mode
      *
      * # Arguments
@@ -4809,6 +4891,26 @@ open func setCallEnabled(enabled: Bool)async throws  {
                 uniffi_matrix_sdk_ffi_fn_method_notificationsettings_set_call_enabled(
                     self.uniffiClonePointer(),
                     FfiConverterBool.lower(enabled)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeNotificationSettingsError.lift
+        )
+}
+    
+    /**
+     * Sets a custom push rule with the given actions and conditions.
+     */
+open func setCustomPushRule(ruleId: String, ruleKind: RuleKind, actions: [Action], conditions: [PushCondition])async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_notificationsettings_set_custom_push_rule(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(ruleId),FfiConverterTypeRuleKind.lower(ruleKind),FfiConverterSequenceTypeAction.lower(actions),FfiConverterSequenceTypePushCondition.lower(conditions)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -5219,6 +5321,8 @@ public protocol RoomProtocol : AnyObject {
      */
     func enableSendQueue(enable: Bool) 
     
+    func encryptionState()  -> EncryptionState
+    
     /**
      * Forget this room.
      *
@@ -5283,15 +5387,7 @@ public protocol RoomProtocol : AnyObject {
     
     func invitedMembersCount()  -> UInt64
     
-    /**
-     * For rooms one is invited to, retrieves the room member information for
-     * the user who invited the logged-in user to a room.
-     */
-    func inviter() async  -> RoomMember?
-    
-    func isDirect()  -> Bool
-    
-    func isEncrypted() throws  -> Bool
+    func isDirect() async  -> Bool
     
     func isPublic()  -> Bool
     
@@ -5315,6 +5411,8 @@ public protocol RoomProtocol : AnyObject {
     func joinedMembersCount()  -> UInt64
     
     func kickUser(userId: String, reason: String?) async throws 
+    
+    func latestEncryptionState() async throws  -> EncryptionState
     
     /**
      * Leave this room.
@@ -6023,6 +6121,13 @@ open func enableSendQueue(enable: Bool) {try! rustCall() {
 }
 }
     
+open func encryptionState() -> EncryptionState {
+    return try!  FfiConverterTypeEncryptionState_lift(try! rustCall() {
+    uniffi_matrix_sdk_ffi_fn_method_room_encryption_state(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
     /**
      * Forget this room.
      *
@@ -6202,40 +6307,22 @@ open func invitedMembersCount() -> UInt64 {
 })
 }
     
-    /**
-     * For rooms one is invited to, retrieves the room member information for
-     * the user who invited the logged-in user to a room.
-     */
-open func inviter()async  -> RoomMember? {
+open func isDirect()async  -> Bool {
     return
         try!  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_room_inviter(
+                uniffi_matrix_sdk_ffi_fn_method_room_is_direct(
                     self.uniffiClonePointer()
                     
                 )
             },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeRoomMember.lift,
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_i8,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_i8,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_i8,
+            liftFunc: FfiConverterBool.lift,
             errorHandler: nil
             
         )
-}
-    
-open func isDirect() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_method_room_is_direct(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func isEncrypted()throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeClientError.lift) {
-    uniffi_matrix_sdk_ffi_fn_method_room_is_encrypted(self.uniffiClonePointer(),$0
-    )
-})
 }
     
 open func isPublic() -> Bool {
@@ -6312,6 +6399,23 @@ open func kickUser(userId: String, reason: String?)async throws  {
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
             liftFunc: { $0 },
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+}
+    
+open func latestEncryptionState()async throws  -> EncryptionState {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_room_latest_encryption_state(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeEncryptionState_lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
 }
@@ -8025,18 +8129,7 @@ public protocol RoomListItemProtocol : AnyObject {
      */
     func initTimeline(eventTypeFilter: TimelineEventTypeFilter?, internalIdPrefix: String?) async throws 
     
-    /**
-     * Builds a `Room` FFI from an invited room without initializing its
-     * internal timeline.
-     *
-     * An error will be returned if the room is a state different than invited.
-     *
-     * ⚠️ Holding on to this room instance after it has been joined is not
-     * safe. Use `full_room` instead.
-     */
-    func invitedRoom() throws  -> Room
-    
-    func isDirect()  -> Bool
+    func isDirect() async  -> Bool
     
     /**
      * Checks whether the room is encrypted or not.
@@ -8182,27 +8275,22 @@ open func initTimeline(eventTypeFilter: TimelineEventTypeFilter?, internalIdPref
         )
 }
     
-    /**
-     * Builds a `Room` FFI from an invited room without initializing its
-     * internal timeline.
-     *
-     * An error will be returned if the room is a state different than invited.
-     *
-     * ⚠️ Holding on to this room instance after it has been joined is not
-     * safe. Use `full_room` instead.
-     */
-open func invitedRoom()throws  -> Room {
-    return try  FfiConverterTypeRoom.lift(try rustCallWithError(FfiConverterTypeRoomListError.lift) {
-    uniffi_matrix_sdk_ffi_fn_method_roomlistitem_invited_room(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func isDirect() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_method_roomlistitem_is_direct(self.uniffiClonePointer(),$0
-    )
-})
+open func isDirect()async  -> Bool {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_roomlistitem_is_direct(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_i8,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_i8,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_i8,
+            liftFunc: FfiConverterBool.lift,
+            errorHandler: nil
+            
+        )
 }
     
     /**
@@ -8746,6 +8834,9 @@ public protocol RoomPreviewProtocol : AnyObject {
      * Leave the room if the room preview state is either joined, invited or
      * knocked.
      *
+     * If rejecting an invite then also forget it as an extra layer of
+     * protection against spam attacks.
+     *
      * Will return an error otherwise.
      */
     func leave() async throws 
@@ -8856,6 +8947,9 @@ open func inviter()async  -> RoomMember? {
     /**
      * Leave the room if the room preview state is either joined, invited or
      * knocked.
+     *
+     * If rejecting an invite then also forget it as an extra layer of
+     * protection against spam attacks.
      *
      * Will return an error otherwise.
      */
@@ -14573,7 +14667,7 @@ public struct OidcConfiguration {
     /**
      * A URI that contains information about the client.
      */
-    public var clientUri: String?
+    public var clientUri: String
     /**
      * A URI that contains the client's logo.
      */
@@ -14614,7 +14708,7 @@ public struct OidcConfiguration {
          */redirectUri: String, 
         /**
          * A URI that contains information about the client.
-         */clientUri: String?, 
+         */clientUri: String, 
         /**
          * A URI that contains the client's logo.
          */logoUri: String?, 
@@ -14702,7 +14796,7 @@ public struct FfiConverterTypeOidcConfiguration: FfiConverterRustBuffer {
             try OidcConfiguration(
                 clientName: FfiConverterOptionString.read(from: &buf), 
                 redirectUri: FfiConverterString.read(from: &buf), 
-                clientUri: FfiConverterOptionString.read(from: &buf), 
+                clientUri: FfiConverterString.read(from: &buf), 
                 logoUri: FfiConverterOptionString.read(from: &buf), 
                 tosUri: FfiConverterOptionString.read(from: &buf), 
                 policyUri: FfiConverterOptionString.read(from: &buf), 
@@ -14715,7 +14809,7 @@ public struct FfiConverterTypeOidcConfiguration: FfiConverterRustBuffer {
     public static func write(_ value: OidcConfiguration, into buf: inout [UInt8]) {
         FfiConverterOptionString.write(value.clientName, into: &buf)
         FfiConverterString.write(value.redirectUri, into: &buf)
-        FfiConverterOptionString.write(value.clientUri, into: &buf)
+        FfiConverterString.write(value.clientUri, into: &buf)
         FfiConverterOptionString.write(value.logoUri, into: &buf)
         FfiConverterOptionString.write(value.tosUri, into: &buf)
         FfiConverterOptionString.write(value.policyUri, into: &buf)
@@ -15661,6 +15755,7 @@ public func FfiConverterTypeRoomHero_lower(_ value: RoomHero) -> RustBuffer {
 
 public struct RoomInfo {
     public var id: String
+    public var encryptionState: EncryptionState
     public var creator: String?
     /**
      * The room's name from the room state event if received from sync, or one
@@ -15733,7 +15828,7 @@ public struct RoomInfo {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(id: String, creator: String?, 
+    public init(id: String, encryptionState: EncryptionState, creator: String?, 
         /**
          * The room's name from the room state event if received from sync, or one
          * that's been computed otherwise.
@@ -15773,6 +15868,7 @@ public struct RoomInfo {
          * The history visibility for this room, if known.
          */historyVisibility: RoomHistoryVisibility) {
         self.id = id
+        self.encryptionState = encryptionState
         self.creator = creator
         self.displayName = displayName
         self.rawName = rawName
@@ -15812,6 +15908,9 @@ public struct RoomInfo {
 extension RoomInfo: Equatable, Hashable {
     public static func ==(lhs: RoomInfo, rhs: RoomInfo) -> Bool {
         if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.encryptionState != rhs.encryptionState {
             return false
         }
         if lhs.creator != rhs.creator {
@@ -15912,6 +16011,7 @@ extension RoomInfo: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(encryptionState)
         hasher.combine(creator)
         hasher.combine(displayName)
         hasher.combine(rawName)
@@ -15952,6 +16052,7 @@ public struct FfiConverterTypeRoomInfo: FfiConverterRustBuffer {
         return
             try RoomInfo(
                 id: FfiConverterString.read(from: &buf), 
+                encryptionState: FfiConverterTypeEncryptionState.read(from: &buf), 
                 creator: FfiConverterOptionString.read(from: &buf), 
                 displayName: FfiConverterOptionString.read(from: &buf), 
                 rawName: FfiConverterOptionString.read(from: &buf), 
@@ -15988,6 +16089,7 @@ public struct FfiConverterTypeRoomInfo: FfiConverterRustBuffer {
 
     public static func write(_ value: RoomInfo, into buf: inout [UInt8]) {
         FfiConverterString.write(value.id, into: &buf)
+        FfiConverterTypeEncryptionState.write(value.encryptionState, into: &buf)
         FfiConverterOptionString.write(value.creator, into: &buf)
         FfiConverterOptionString.write(value.displayName, into: &buf)
         FfiConverterOptionString.write(value.rawName, into: &buf)
@@ -18852,6 +18954,73 @@ extension AccountManagementAction: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Enum representing the push notification actions for a rule.
+ */
+
+public enum Action {
+    
+    /**
+     * Causes matching events to generate a notification.
+     */
+    case notify
+    /**
+     * Sets an entry in the 'tweaks' dictionary sent to the push gateway.
+     */
+    case setTweak(value: Tweak
+    )
+}
+
+
+public struct FfiConverterTypeAction: FfiConverterRustBuffer {
+    typealias SwiftType = Action
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Action {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .notify
+        
+        case 2: return .setTweak(value: try FfiConverterTypeTweak.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: Action, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .notify:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .setTweak(value):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeTweak.write(value, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeAction_lift(_ buf: RustBuffer) throws -> Action {
+    return try FfiConverterTypeAction.lift(buf)
+}
+
+public func FfiConverterTypeAction_lower(_ value: Action) -> RustBuffer {
+    return FfiConverterTypeAction.lower(value)
+}
+
+
+
+extension Action: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * An allow rule which defines a condition that allows joining a room.
  */
 
@@ -19374,6 +19543,97 @@ extension ClientError: Foundation.LocalizedError {
         String(reflecting: self)
     }
 }
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum ComparisonOperator {
+    
+    /**
+     * Equals
+     */
+    case eq
+    /**
+     * Less than
+     */
+    case lt
+    /**
+     * Greater than
+     */
+    case gt
+    /**
+     * Greater or equal
+     */
+    case ge
+    /**
+     * Less or equal
+     */
+    case le
+}
+
+
+public struct FfiConverterTypeComparisonOperator: FfiConverterRustBuffer {
+    typealias SwiftType = ComparisonOperator
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComparisonOperator {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .eq
+        
+        case 2: return .lt
+        
+        case 3: return .gt
+        
+        case 4: return .ge
+        
+        case 5: return .le
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ComparisonOperator, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .eq:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .lt:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .gt:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .ge:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .le:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+public func FfiConverterTypeComparisonOperator_lift(_ buf: RustBuffer) throws -> ComparisonOperator {
+    return try FfiConverterTypeComparisonOperator.lift(buf)
+}
+
+public func FfiConverterTypeComparisonOperator_lower(_ value: ComparisonOperator) -> RustBuffer {
+    return FfiConverterTypeComparisonOperator.lower(value)
+}
+
+
+
+extension ComparisonOperator: Equatable, Hashable {}
+
+
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -21172,6 +21432,96 @@ extension JoinRule: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum JsonValue {
+    
+    /**
+     * Represents a `null` value.
+     */
+    case null
+    /**
+     * Represents a boolean.
+     */
+    case bool(value: Bool
+    )
+    /**
+     * Represents an integer.
+     */
+    case integer(value: Int64
+    )
+    /**
+     * Represents a string.
+     */
+    case string(value: String
+    )
+}
+
+
+public struct FfiConverterTypeJsonValue: FfiConverterRustBuffer {
+    typealias SwiftType = JsonValue
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> JsonValue {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .null
+        
+        case 2: return .bool(value: try FfiConverterBool.read(from: &buf)
+        )
+        
+        case 3: return .integer(value: try FfiConverterInt64.read(from: &buf)
+        )
+        
+        case 4: return .string(value: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: JsonValue, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .null:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .bool(value):
+            writeInt(&buf, Int32(2))
+            FfiConverterBool.write(value, into: &buf)
+            
+        
+        case let .integer(value):
+            writeInt(&buf, Int32(3))
+            FfiConverterInt64.write(value, into: &buf)
+            
+        
+        case let .string(value):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(value, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeJsonValue_lift(_ buf: RustBuffer) throws -> JsonValue {
+    return try FfiConverterTypeJsonValue.lift(buf)
+}
+
+public func FfiConverterTypeJsonValue_lower(_ value: JsonValue) -> RustBuffer {
+    return FfiConverterTypeJsonValue.lower(value)
+}
+
+
+
+extension JsonValue: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum LogLevel {
     
     case error
@@ -22704,10 +23054,12 @@ extension OidcError: Foundation.LocalizedError {
 public enum OidcPrompt {
     
     /**
-     * The Authorization Server must not display any authentication or consent
-     * user interface pages.
+     * The Authorization Server should prompt the End-User to create a user
+     * account.
+     *
+     * Defined in [Initiating User Registration via OpenID Connect](https://openid.net/specs/openid-connect-prompt-create-1_0.html).
      */
-    case none
+    case create
     /**
      * The Authorization Server should prompt the End-User for
      * reauthentication.
@@ -22718,22 +23070,6 @@ public enum OidcPrompt {
      * returning information to the Client.
      */
     case consent
-    /**
-     * The Authorization Server should prompt the End-User to select a user
-     * account.
-     *
-     * This enables an End-User who has multiple accounts at the Authorization
-     * Server to select amongst the multiple accounts that they might have
-     * current sessions for.
-     */
-    case selectAccount
-    /**
-     * The Authorization Server should prompt the End-User to create a user
-     * account.
-     *
-     * Defined in [Initiating User Registration via OpenID Connect](https://openid.net/specs/openid-connect-prompt-create-1_0.html).
-     */
-    case create
     /**
      * An unknown value.
      */
@@ -22749,17 +23085,13 @@ public struct FfiConverterTypeOidcPrompt: FfiConverterRustBuffer {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
-        case 1: return .none
+        case 1: return .create
         
         case 2: return .login
         
         case 3: return .consent
         
-        case 4: return .selectAccount
-        
-        case 5: return .create
-        
-        case 6: return .unknown(value: try FfiConverterString.read(from: &buf)
+        case 4: return .unknown(value: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -22770,7 +23102,7 @@ public struct FfiConverterTypeOidcPrompt: FfiConverterRustBuffer {
         switch value {
         
         
-        case .none:
+        case .create:
             writeInt(&buf, Int32(1))
         
         
@@ -22782,16 +23114,8 @@ public struct FfiConverterTypeOidcPrompt: FfiConverterRustBuffer {
             writeInt(&buf, Int32(3))
         
         
-        case .selectAccount:
-            writeInt(&buf, Int32(4))
-        
-        
-        case .create:
-            writeInt(&buf, Int32(5))
-        
-        
         case let .unknown(value):
-            writeInt(&buf, Int32(6))
+            writeInt(&buf, Int32(4))
             FfiConverterString.write(value, into: &buf)
             
         }
@@ -23340,6 +23664,163 @@ public func FfiConverterTypePublicRoomJoinRule_lower(_ value: PublicRoomJoinRule
 
 
 extension PublicRoomJoinRule: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum PushCondition {
+    
+    /**
+     * A glob pattern match on a field of the event.
+     */
+    case eventMatch(
+        /**
+         * The [dot-separated path] of the property of the event to match.
+         *
+         * [dot-separated path]: https://spec.matrix.org/latest/appendices/#dot-separated-property-paths
+         */key: String, 
+        /**
+         * The glob-style pattern to match against.
+         *
+         * Patterns with no special glob characters should be treated as having
+         * asterisks prepended and appended when testing the condition.
+         */pattern: String
+    )
+    /**
+     * Matches unencrypted messages where `content.body` contains the owner's
+     * display name in that room.
+     */
+    case containsDisplayName
+    /**
+     * Matches the current number of members in the room.
+     */
+    case roomMemberCount(prefix: ComparisonOperator, count: UInt64
+    )
+    /**
+     * Takes into account the current power levels in the room, ensuring the
+     * sender of the event has high enough power to trigger the
+     * notification.
+     */
+    case senderNotificationPermission(
+        /**
+         * The field in the power level event the user needs a minimum power
+         * level for.
+         *
+         * Fields must be specified under the `notifications` property in the
+         * power level event's `content`.
+         */key: String
+    )
+    /**
+     * Exact value match on a property of the event.
+     */
+    case eventPropertyIs(
+        /**
+         * The [dot-separated path] of the property of the event to match.
+         *
+         * [dot-separated path]: https://spec.matrix.org/latest/appendices/#dot-separated-property-paths
+         */key: String, 
+        /**
+         * The value to match against.
+         */value: JsonValue
+    )
+    /**
+     * Exact value match on a value in an array property of the event.
+     */
+    case eventPropertyContains(
+        /**
+         * The [dot-separated path] of the property of the event to match.
+         *
+         * [dot-separated path]: https://spec.matrix.org/latest/appendices/#dot-separated-property-paths
+         */key: String, 
+        /**
+         * The value to match against.
+         */value: JsonValue
+    )
+}
+
+
+public struct FfiConverterTypePushCondition: FfiConverterRustBuffer {
+    typealias SwiftType = PushCondition
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PushCondition {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .eventMatch(key: try FfiConverterString.read(from: &buf), pattern: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .containsDisplayName
+        
+        case 3: return .roomMemberCount(prefix: try FfiConverterTypeComparisonOperator.read(from: &buf), count: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 4: return .senderNotificationPermission(key: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 5: return .eventPropertyIs(key: try FfiConverterString.read(from: &buf), value: try FfiConverterTypeJsonValue.read(from: &buf)
+        )
+        
+        case 6: return .eventPropertyContains(key: try FfiConverterString.read(from: &buf), value: try FfiConverterTypeJsonValue.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PushCondition, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .eventMatch(key,pattern):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterString.write(pattern, into: &buf)
+            
+        
+        case .containsDisplayName:
+            writeInt(&buf, Int32(2))
+        
+        
+        case let .roomMemberCount(prefix,count):
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeComparisonOperator.write(prefix, into: &buf)
+            FfiConverterUInt64.write(count, into: &buf)
+            
+        
+        case let .senderNotificationPermission(key):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(key, into: &buf)
+            
+        
+        case let .eventPropertyIs(key,value):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterTypeJsonValue.write(value, into: &buf)
+            
+        
+        case let .eventPropertyContains(key,value):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterTypeJsonValue.write(value, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypePushCondition_lift(_ buf: RustBuffer) throws -> PushCondition {
+    return try FfiConverterTypePushCondition.lift(buf)
+}
+
+public func FfiConverterTypePushCondition_lower(_ value: PushCondition) -> RustBuffer {
+    return FfiConverterTypePushCondition.lower(value)
+}
+
+
+
+extension PushCondition: Equatable, Hashable {}
 
 
 
@@ -25498,6 +25979,107 @@ extension RtcApplicationType: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum RuleKind {
+    
+    /**
+     * User-configured rules that override all other kinds.
+     */
+    case override
+    /**
+     * Lowest priority user-defined rules.
+     */
+    case underride
+    /**
+     * Sender-specific rules.
+     */
+    case sender
+    /**
+     * Room-specific rules.
+     */
+    case room
+    /**
+     * Content-specific rules.
+     */
+    case content
+    case custom(value: String
+    )
+}
+
+
+public struct FfiConverterTypeRuleKind: FfiConverterRustBuffer {
+    typealias SwiftType = RuleKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RuleKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .override
+        
+        case 2: return .underride
+        
+        case 3: return .sender
+        
+        case 4: return .room
+        
+        case 5: return .content
+        
+        case 6: return .custom(value: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RuleKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .override:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .underride:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .sender:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .room:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .content:
+            writeInt(&buf, Int32(5))
+        
+        
+        case let .custom(value):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(value, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeRuleKind_lift(_ buf: RustBuffer) throws -> RuleKind {
+    return try FfiConverterTypeRuleKind.lift(buf)
+}
+
+public func FfiConverterTypeRuleKind_lower(_ value: RuleKind) -> RustBuffer {
+    return FfiConverterTypeRuleKind.lower(value)
+}
+
+
+
+extension RuleKind: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum SessionVerificationData {
     
     case emojis(emojis: [SessionVerificationEmoji], indices: Data
@@ -26853,6 +27435,101 @@ public func FfiConverterTypeTimelineItemContent_lower(_ value: TimelineItemConte
     return FfiConverterTypeTimelineItemContent.lower(value)
 }
 
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Enum representing the push notification tweaks for a rule.
+ */
+
+public enum Tweak {
+    
+    /**
+     * A string representing the sound to be played when this notification
+     * arrives.
+     *
+     * A value of "default" means to play a default sound. A device may choose
+     * to alert the user by some other means if appropriate, eg. vibration.
+     */
+    case sound(value: String
+    )
+    /**
+     * A boolean representing whether or not this message should be highlighted
+     * in the UI.
+     */
+    case highlight(value: Bool
+    )
+    /**
+     * A custom tweak
+     */
+    case custom(
+        /**
+         * The name of the custom tweak (`set_tweak` field)
+         */name: String, 
+        /**
+         * The value of the custom tweak as an encoded JSON string
+         */value: String
+    )
+}
+
+
+public struct FfiConverterTypeTweak: FfiConverterRustBuffer {
+    typealias SwiftType = Tweak
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Tweak {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .sound(value: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .highlight(value: try FfiConverterBool.read(from: &buf)
+        )
+        
+        case 3: return .custom(name: try FfiConverterString.read(from: &buf), value: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: Tweak, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .sound(value):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(value, into: &buf)
+            
+        
+        case let .highlight(value):
+            writeInt(&buf, Int32(2))
+            FfiConverterBool.write(value, into: &buf)
+            
+        
+        case let .custom(name,value):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(name, into: &buf)
+            FfiConverterString.write(value, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeTweak_lift(_ buf: RustBuffer) throws -> Tweak {
+    return try FfiConverterTypeTweak.lift(buf)
+}
+
+public func FfiConverterTypeTweak_lower(_ value: Tweak) -> RustBuffer {
+    return FfiConverterTypeTweak.lower(value)
+}
+
+
+
+extension Tweak: Equatable, Hashable {}
 
 
 
@@ -30582,6 +31259,27 @@ fileprivate struct FfiConverterOptionTypeMembershipChange: FfiConverterRustBuffe
     }
 }
 
+fileprivate struct FfiConverterOptionTypeOidcPrompt: FfiConverterRustBuffer {
+    typealias SwiftType = OidcPrompt?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeOidcPrompt.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeOidcPrompt.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionTypePublicRoomJoinRule: FfiConverterRustBuffer {
     typealias SwiftType = PublicRoomJoinRule?
 
@@ -31399,6 +32097,28 @@ fileprivate struct FfiConverterSequenceTypeUserProfile: FfiConverterRustBuffer {
     }
 }
 
+fileprivate struct FfiConverterSequenceTypeAction: FfiConverterRustBuffer {
+    typealias SwiftType = [Action]
+
+    public static func write(_ value: [Action], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAction.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Action] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Action]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAction.read(from: &buf))
+        }
+        return seq
+    }
+}
+
 fileprivate struct FfiConverterSequenceTypeAllowRule: FfiConverterRustBuffer {
     typealias SwiftType = [AllowRule]
 
@@ -31482,6 +32202,28 @@ fileprivate struct FfiConverterSequenceTypeOidcPrompt: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeOidcPrompt.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+fileprivate struct FfiConverterSequenceTypePushCondition: FfiConverterRustBuffer {
+    typealias SwiftType = [PushCondition]
+
+    public static func write(_ value: [PushCondition], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePushCondition.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PushCondition] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PushCondition]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePushCondition.read(from: &buf))
         }
         return seq
     }
@@ -31763,6 +32505,8 @@ fileprivate struct FfiConverterDictionaryStringSequenceString: FfiConverterRustB
 
 
 
+
+
 /**
  * Typealias from the type name used in the UDL file to the builtin type.  This
  * is needed because the UDL type name is used in function/method signatures.
@@ -31918,6 +32662,21 @@ public func getElementCallRequiredPermissions(ownUserId: String, ownDeviceId: St
         FfiConverterString.lower(ownDeviceId),$0
     )
 })
+}
+/**
+ * Sets up logs and the tokio runtime for the current application.
+ *
+ * If `use_lightweight_tokio_runtime` is set to true, this will set up a
+ * lightweight tokio runtime, for processes that have memory limitations (like
+ * the NSE process on iOS). Otherwise, this can remain false, in which case a
+ * multithreaded tokio runtime will be set up.
+ */
+public func initPlatform(config: TracingConfiguration, useLightweightTokioRuntime: Bool) {try! rustCall() {
+    uniffi_matrix_sdk_ffi_fn_func_init_platform(
+        FfiConverterTypeTracingConfiguration.lower(config),
+        FfiConverterBool.lower(useLightweightTokioRuntime),$0
+    )
+}
 }
 /**
  * Verifies the passed `String` matches the expected room alias format:
@@ -32080,12 +32839,6 @@ public func sdkGitSha() -> String {
     )
 })
 }
-public func setupTracing(config: TracingConfiguration) {try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_func_setup_tracing(
-        FfiConverterTypeTracingConfiguration.lower(config),$0
-    )
-}
-}
 public func suggestedPowerLevelForRole(role: RoomMemberRole) -> Int64 {
     return try!  FfiConverterInt64.lift(try! rustCall() {
     uniffi_matrix_sdk_ffi_fn_func_suggested_power_level_for_role(
@@ -32129,6 +32882,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_func_get_element_call_required_permissions() != 30181) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_func_init_platform() != 35062) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_func_is_room_alias_format_valid() != 54845) {
@@ -32176,9 +32932,6 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_func_sdk_git_sha() != 4038) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_func_setup_tracing() != 45018) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_func_suggested_power_level_for_role() != 61777) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -32188,7 +32941,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_roommessageeventcontentwithoutrelation_with_mentions() != 8867) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_abort_oidc_auth() != 6754) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_abort_oidc_auth() != 53440) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_account_data() != 50433) {
@@ -32206,7 +32959,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_await_room_remote_echo() != 18126) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_cached_avatar_url() != 58990) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_cached_avatar_url() != 50226) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_can_deactivate_account() != 39890) {
@@ -32251,13 +33004,16 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_media_thumbnail() != 52601) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_get_notification_settings() != 6359) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_get_notification_settings() != 49769) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_profile() != 60062) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_recently_visited_rooms() != 22399) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_get_room() != 30376) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_room_preview_from_room_alias() != 7674) {
@@ -32302,7 +33058,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_login_with_email() != 11789) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_login_with_oidc_callback() != 35005) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_login_with_oidc_callback() != 37848) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_logout() != 42911) {
@@ -32383,7 +33139,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_upload_media() != 51195) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_url_for_oidc() != 30079) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_url_for_oidc() != 35004) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_user_id() != 40531) {
@@ -32635,6 +33391,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_notificationsettings_set_call_enabled() != 16823) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_notificationsettings_set_custom_push_rule() != 465) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_notificationsettings_set_default_room_notification_mode() != 9426) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -32725,6 +33484,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_enable_send_queue() != 23914) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_encryption_state() != 9101) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_forget() != 37840) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -32758,13 +33520,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_invited_members_count() != 1023) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_inviter() != 49874) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_is_direct() != 16947) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_is_encrypted() != 55158) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_is_direct() != 10462) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_is_public() != 7336) {
@@ -32786,6 +33542,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_kick_user() != 28600) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_latest_encryption_state() != 16843) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_leave() != 63688) {
@@ -33004,10 +33763,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_init_timeline() != 61817) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_invited_room() != 44344) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_is_direct() != 46873) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_is_direct() != 53352) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roomlistitem_is_encrypted() != 65150) {
@@ -33058,7 +33814,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_inviter() != 1297) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_leave() != 5096) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_leave() != 21886) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_own_membership_details() != 1443) {
