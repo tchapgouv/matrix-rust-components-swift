@@ -7,8 +7,7 @@ let url = "https://github.com/tchapgouv/matrix-rust-components-swift/releases/do
 let package = Package(
     name: "MatrixRustSDK",
     platforms: [
-        .iOS(.v15),
-        .macOS(.v12)
+        .iOS(.v16)
     ],
     products: [
         .library(name: "MatrixRustSDK", targets: ["MatrixRustSDK"]),
