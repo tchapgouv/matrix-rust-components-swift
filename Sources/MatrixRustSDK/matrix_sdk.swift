@@ -458,9 +458,9 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 
 /**
- * The data needed to perform authorization using OpenID Connect.
+ * The data needed to perform authorization using OAuth 2.0.
  */
-public protocol OidcAuthorizationDataProtocol : AnyObject {
+public protocol OAuthAuthorizationDataProtocol : AnyObject {
     
     /**
      * The login URL to use for authorization.
@@ -470,10 +470,10 @@ public protocol OidcAuthorizationDataProtocol : AnyObject {
 }
 
 /**
- * The data needed to perform authorization using OpenID Connect.
+ * The data needed to perform authorization using OAuth 2.0.
  */
-open class OidcAuthorizationData:
-    OidcAuthorizationDataProtocol {
+open class OAuthAuthorizationData:
+    OAuthAuthorizationDataProtocol {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
@@ -498,7 +498,7 @@ open class OidcAuthorizationData:
     }
 
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_matrix_sdk_fn_clone_oidcauthorizationdata(self.pointer, $0) }
+        return try! rustCall { uniffi_matrix_sdk_fn_clone_oauthauthorizationdata(self.pointer, $0) }
     }
     // No primary constructor declared for this class.
 
@@ -507,7 +507,7 @@ open class OidcAuthorizationData:
             return
         }
 
-        try! rustCall { uniffi_matrix_sdk_fn_free_oidcauthorizationdata(pointer, $0) }
+        try! rustCall { uniffi_matrix_sdk_fn_free_oauthauthorizationdata(pointer, $0) }
     }
 
     
@@ -518,7 +518,7 @@ open class OidcAuthorizationData:
      */
 open func loginUrl() -> String {
     return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_matrix_sdk_fn_method_oidcauthorizationdata_login_url(self.uniffiClonePointer(),$0
+    uniffi_matrix_sdk_fn_method_oauthauthorizationdata_login_url(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -526,20 +526,20 @@ open func loginUrl() -> String {
 
 }
 
-public struct FfiConverterTypeOidcAuthorizationData: FfiConverter {
+public struct FfiConverterTypeOAuthAuthorizationData: FfiConverter {
 
     typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = OidcAuthorizationData
+    typealias SwiftType = OAuthAuthorizationData
 
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> OidcAuthorizationData {
-        return OidcAuthorizationData(unsafeFromRawPointer: pointer)
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> OAuthAuthorizationData {
+        return OAuthAuthorizationData(unsafeFromRawPointer: pointer)
     }
 
-    public static func lower(_ value: OidcAuthorizationData) -> UnsafeMutableRawPointer {
+    public static func lower(_ value: OAuthAuthorizationData) -> UnsafeMutableRawPointer {
         return value.uniffiClonePointer()
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OidcAuthorizationData {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OAuthAuthorizationData {
         let v: UInt64 = try readInt(&buf)
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
@@ -550,7 +550,7 @@ public struct FfiConverterTypeOidcAuthorizationData: FfiConverter {
         return try lift(ptr!)
     }
 
-    public static func write(_ value: OidcAuthorizationData, into buf: inout [UInt8]) {
+    public static func write(_ value: OAuthAuthorizationData, into buf: inout [UInt8]) {
         // This fiddling is because `Int` is the thing that's the same size as a pointer.
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
         writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
@@ -560,12 +560,72 @@ public struct FfiConverterTypeOidcAuthorizationData: FfiConverter {
 
 
 
-public func FfiConverterTypeOidcAuthorizationData_lift(_ pointer: UnsafeMutableRawPointer) throws -> OidcAuthorizationData {
-    return try FfiConverterTypeOidcAuthorizationData.lift(pointer)
+public func FfiConverterTypeOAuthAuthorizationData_lift(_ pointer: UnsafeMutableRawPointer) throws -> OAuthAuthorizationData {
+    return try FfiConverterTypeOAuthAuthorizationData.lift(pointer)
 }
 
-public func FfiConverterTypeOidcAuthorizationData_lower(_ value: OidcAuthorizationData) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeOidcAuthorizationData.lower(value)
+public func FfiConverterTypeOAuthAuthorizationData_lower(_ value: OAuthAuthorizationData) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeOAuthAuthorizationData.lower(value)
+}
+
+
+/**
+ * The content of an `im.vector.room.access_rules` event.
+ *
+ * Describes how external users are allowed to join the room.
+ */
+public struct RoomAccessRulesEventContent {
+    /**
+     * The type of rules used for external users wishing to join this room.
+     */
+    public var accessRule: AccessRule
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The type of rules used for external users wishing to join this room.
+         */accessRule: AccessRule) {
+        self.accessRule = accessRule
+    }
+}
+
+
+
+extension RoomAccessRulesEventContent: Equatable, Hashable {
+    public static func ==(lhs: RoomAccessRulesEventContent, rhs: RoomAccessRulesEventContent) -> Bool {
+        if lhs.accessRule != rhs.accessRule {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(accessRule)
+    }
+}
+
+
+public struct FfiConverterTypeRoomAccessRulesEventContent: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RoomAccessRulesEventContent {
+        return
+            try RoomAccessRulesEventContent(
+                accessRule: FfiConverterTypeAccessRule.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RoomAccessRulesEventContent, into buf: inout [UInt8]) {
+        FfiConverterTypeAccessRule.write(value.accessRule, into: &buf)
+    }
+}
+
+
+public func FfiConverterTypeRoomAccessRulesEventContent_lift(_ buf: RustBuffer) throws -> RoomAccessRulesEventContent {
+    return try FfiConverterTypeRoomAccessRulesEventContent.lift(buf)
+}
+
+public func FfiConverterTypeRoomAccessRulesEventContent_lower(_ value: RoomAccessRulesEventContent) -> RustBuffer {
+    return FfiConverterTypeRoomAccessRulesEventContent.lower(value)
 }
 
 
@@ -757,6 +817,83 @@ public func FfiConverterTypeRoomPowerLevelChanges_lower(_ value: RoomPowerLevelC
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * The rule used for Tchap external users wishing to join this room.
+ */
+
+public enum AccessRule {
+    
+    /**
+     * For Direct message, a room between only 2 users.
+     */
+    case direct
+    /**
+     * A external user who wishes to join the room must first receive an invite
+     * to the room from someone already inside of the room.
+     */
+    case restricted
+    /**
+     * External users can join the room if they are invited.
+     *
+     * They can be allowed (invited) or denied (kicked/banned) access.
+     */
+    case unrestricted
+}
+
+
+public struct FfiConverterTypeAccessRule: FfiConverterRustBuffer {
+    typealias SwiftType = AccessRule
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccessRule {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .direct
+        
+        case 2: return .restricted
+        
+        case 3: return .unrestricted
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AccessRule, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .direct:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .restricted:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .unrestricted:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+public func FfiConverterTypeAccessRule_lift(_ buf: RustBuffer) throws -> AccessRule {
+    return try FfiConverterTypeAccessRule.lift(buf)
+}
+
+public func FfiConverterTypeAccessRule_lower(_ value: AccessRule) -> RustBuffer {
+    return FfiConverterTypeAccessRule.lower(value)
+}
+
+
+
+extension AccessRule: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Settings for end-to-end encryption features.
  */
 
@@ -938,7 +1075,7 @@ public enum QrCodeLoginError {
      * An error happened while we were communicating with the OAuth 2.0
      * authorization server.
      */
-    case Oauth(message: String)
+    case OAuth(message: String)
     
     /**
      * The other device has signaled to us that the login has failed.
@@ -997,7 +1134,7 @@ public struct FfiConverterTypeQRCodeLoginError: FfiConverterRustBuffer {
         
 
         
-        case 1: return .Oauth(
+        case 1: return .OAuth(
             message: try FfiConverterString.read(from: &buf)
         )
         
@@ -1044,7 +1181,7 @@ public struct FfiConverterTypeQRCodeLoginError: FfiConverterRustBuffer {
         
 
         
-        case .Oauth(_ /* message is ignored*/):
+        case .OAuth(_ /* message is ignored*/):
             writeInt(&buf, Int32(1))
         case .LoginFailure(_ /* message is ignored*/):
             writeInt(&buf, Int32(2))
@@ -1258,7 +1395,7 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_matrix_sdk_checksum_method_oidcauthorizationdata_login_url() != 59213) {
+    if (uniffi_matrix_sdk_checksum_method_oauthauthorizationdata_login_url() != 25566) {
         return InitializationResult.apiChecksumMismatch
     }
 
