@@ -672,8 +672,6 @@ public protocol ClientProtocol : AnyObject {
     
     func displayName() async throws  -> String
     
-    func downloadAttachmentFromContentScanner(mediaSource: MediaSource) async throws  -> Data
-    
     /**
      * Enables or disables all the room send queues at once.
      *
@@ -686,8 +684,6 @@ public protocol ClientProtocol : AnyObject {
     func enableAllSendQueues(enable: Bool) async 
     
     func encryption()  -> Encryption
-    
-    func getContentScannerResultForAttachment(mediaSource: MediaSource) async throws  -> BwiScanState
     
     func getDmRoom(userId: String) throws  -> Room?
     
@@ -867,8 +863,6 @@ public protocol ClientProtocol : AnyObject {
      * It should be supplied as a JSON string.
      */
     func setAccountData(eventType: String, content: String) async throws 
-    
-    func setContentScannerUrl(url: String) 
     
     func setDelegate(delegate: ClientDelegate?)  -> TaskHandle?
     
@@ -1285,23 +1279,6 @@ open func displayName()async throws  -> String {
         )
 }
     
-open func downloadAttachmentFromContentScanner(mediaSource: MediaSource)async throws  -> Data {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_client_download_attachment_from_content_scanner(
-                    self.uniffiClonePointer(),
-                    FfiConverterTypeMediaSource.lower(mediaSource)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterData.lift,
-            errorHandler: FfiConverterTypeClientError.lift
-        )
-}
-    
     /**
      * Enables or disables all the room send queues at once.
      *
@@ -1334,23 +1311,6 @@ open func encryption() -> Encryption {
     uniffi_matrix_sdk_ffi_fn_method_client_encryption(self.uniffiClonePointer(),$0
     )
 })
-}
-    
-open func getContentScannerResultForAttachment(mediaSource: MediaSource)async throws  -> BwiScanState {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_client_get_content_scanner_result_for_attachment(
-                    self.uniffiClonePointer(),
-                    FfiConverterTypeMediaSource.lower(mediaSource)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeBWIScanState.lift,
-            errorHandler: FfiConverterTypeClientError.lift
-        )
 }
     
 open func getDmRoom(userId: String)throws  -> Room? {
@@ -2004,13 +1964,6 @@ open func setAccountData(eventType: String, content: String)async throws  {
             liftFunc: { $0 },
             errorHandler: FfiConverterTypeClientError.lift
         )
-}
-    
-open func setContentScannerUrl(url: String) {try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_method_client_set_content_scanner_url(self.uniffiClonePointer(),
-        FfiConverterString.lower(url),$0
-    )
-}
 }
     
 open func setDelegate(delegate: ClientDelegate?) -> TaskHandle? {
@@ -19248,112 +19201,6 @@ extension AuthData: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
- * The State that is indicated by the BWI Content Scanner
- */
-
-public enum BwiScanState {
-    
-    /**
-     * The Content is marked as safe
-     */
-    case trusted
-    /**
-     * The content is marked as infected and must not be loaded
-     */
-    case infected
-    /**
-     * The mime type of the file is not allowed
-     */
-    case mimeTypeNotAllowed
-    /**
-     * The content can not be scanned.
-     *     That could happen because the ContentScanner is not available
-     *     or the content can not be uploaded.
-     */
-    case error
-    /**
-     * The scan process is triggered bug not finished
-     */
-    case inProgress
-    /**
-     * The file can no longer be found and can therefore not be scanned
-     */
-    case notFound
-}
-
-
-public struct FfiConverterTypeBWIScanState: FfiConverterRustBuffer {
-    typealias SwiftType = BwiScanState
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BwiScanState {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .trusted
-        
-        case 2: return .infected
-        
-        case 3: return .mimeTypeNotAllowed
-        
-        case 4: return .error
-        
-        case 5: return .inProgress
-        
-        case 6: return .notFound
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: BwiScanState, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .trusted:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .infected:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .mimeTypeNotAllowed:
-            writeInt(&buf, Int32(3))
-        
-        
-        case .error:
-            writeInt(&buf, Int32(4))
-        
-        
-        case .inProgress:
-            writeInt(&buf, Int32(5))
-        
-        
-        case .notFound:
-            writeInt(&buf, Int32(6))
-        
-        }
-    }
-}
-
-
-public func FfiConverterTypeBWIScanState_lift(_ buf: RustBuffer) throws -> BwiScanState {
-    return try FfiConverterTypeBWIScanState.lift(buf)
-}
-
-public func FfiConverterTypeBWIScanState_lower(_ value: BwiScanState) -> RustBuffer {
-    return FfiConverterTypeBWIScanState.lower(value)
-}
-
-
-
-extension BwiScanState: Equatable, Hashable {}
-
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum BackupState {
     
@@ -27770,8 +27617,6 @@ public enum VirtualTimelineItem {
      * The user's own read marker.
      */
     case readMarker
-    case scanStateChanged(eventId: String, newScanState: BwiScanState
-    )
 }
 
 
@@ -27786,9 +27631,6 @@ public struct FfiConverterTypeVirtualTimelineItem: FfiConverterRustBuffer {
         )
         
         case 2: return .readMarker
-        
-        case 3: return .scanStateChanged(eventId: try FfiConverterString.read(from: &buf), newScanState: try FfiConverterTypeBWIScanState.read(from: &buf)
-        )
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -27806,12 +27648,6 @@ public struct FfiConverterTypeVirtualTimelineItem: FfiConverterRustBuffer {
         case .readMarker:
             writeInt(&buf, Int32(2))
         
-        
-        case let .scanStateChanged(eventId,newScanState):
-            writeInt(&buf, Int32(3))
-            FfiConverterString.write(eventId, into: &buf)
-            FfiConverterTypeBWIScanState.write(newScanState, into: &buf)
-            
         }
     }
 }
@@ -33150,16 +32986,10 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_display_name() != 56259) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_download_attachment_from_content_scanner() != 20518) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_enable_all_send_queues() != 30834) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_encryption() != 9657) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_get_content_scanner_result_for_attachment() != 17763) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_dm_room() != 5137) {
@@ -33268,9 +33098,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_set_account_data() != 18256) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_set_content_scanner_url() != 46324) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_set_delegate() != 59796) {
