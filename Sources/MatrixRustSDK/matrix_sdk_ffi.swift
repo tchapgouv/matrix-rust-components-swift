@@ -5682,6 +5682,18 @@ public protocol RoomProtocol : AnyObject {
     
     func memberDisplayName(userId: String) async throws  -> String?
     
+    /**
+     * Get the membership details for the current user.
+     *
+     * Returns:
+     * - If the user was present in the room, a
+     * [`matrix_sdk::room::RoomMemberWithSenderInfo`] containing both the
+     * user info and the member info of the sender of the `m.room.member`
+     * event.
+     * - If the current user is not present, an error.
+     */
+    func memberWithSenderInfo(userId: String) async throws  -> RoomMemberWithSenderInfo
+    
     func members() async throws  -> RoomMembersIterator
     
     func membersNoSync() async throws  -> RoomMembersIterator
@@ -6804,6 +6816,33 @@ open func memberDisplayName(userId: String)async throws  -> String? {
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
             liftFunc: FfiConverterOptionString.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+}
+    
+    /**
+     * Get the membership details for the current user.
+     *
+     * Returns:
+     * - If the user was present in the room, a
+     * [`matrix_sdk::room::RoomMemberWithSenderInfo`] containing both the
+     * user info and the member info of the sender of the `m.room.member`
+     * event.
+     * - If the current user is not present, an error.
+     */
+open func memberWithSenderInfo(userId: String)async throws  -> RoomMemberWithSenderInfo {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_room_member_with_sender_info(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(userId)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeRoomMemberWithSenderInfo.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
 }
@@ -9091,7 +9130,7 @@ public protocol RoomPreviewProtocol : AnyObject {
     /**
      * Get the membership details for the current user.
      */
-    func ownMembershipDetails() async  -> RoomMembershipDetails?
+    func ownMembershipDetails() async  -> RoomMemberWithSenderInfo?
     
 }
 
@@ -9220,7 +9259,7 @@ open func leave()async throws  {
     /**
      * Get the membership details for the current user.
      */
-open func ownMembershipDetails()async  -> RoomMembershipDetails? {
+open func ownMembershipDetails()async  -> RoomMemberWithSenderInfo? {
     return
         try!  await uniffiRustCallAsync(
             rustFutureFunc: {
@@ -9232,7 +9271,7 @@ open func ownMembershipDetails()async  -> RoomMembershipDetails? {
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeRoomMembershipDetails.lift,
+            liftFunc: FfiConverterOptionTypeRoomMemberWithSenderInfo.lift,
             errorHandler: nil
             
         )
@@ -13478,7 +13517,6 @@ public struct EventTimelineItem {
     public var isEditable: Bool
     public var content: TimelineItemContent
     public var timestamp: Timestamp
-    public var reactions: [Reaction]
     public var localSendState: EventSendState?
     public var localCreatedAt: UInt64?
     public var readReceipts: [String: Receipt]
@@ -13491,7 +13529,7 @@ public struct EventTimelineItem {
     public init(
         /**
          * Indicates that an event is remote.
-         */isRemote: Bool, eventOrTransactionId: EventOrTransactionId, sender: String, senderProfile: ProfileDetails, isOwn: Bool, isEditable: Bool, content: TimelineItemContent, timestamp: Timestamp, reactions: [Reaction], localSendState: EventSendState?, localCreatedAt: UInt64?, readReceipts: [String: Receipt], origin: EventItemOrigin?, canBeRepliedTo: Bool, lazyProvider: LazyTimelineItemProvider) {
+         */isRemote: Bool, eventOrTransactionId: EventOrTransactionId, sender: String, senderProfile: ProfileDetails, isOwn: Bool, isEditable: Bool, content: TimelineItemContent, timestamp: Timestamp, localSendState: EventSendState?, localCreatedAt: UInt64?, readReceipts: [String: Receipt], origin: EventItemOrigin?, canBeRepliedTo: Bool, lazyProvider: LazyTimelineItemProvider) {
         self.isRemote = isRemote
         self.eventOrTransactionId = eventOrTransactionId
         self.sender = sender
@@ -13500,7 +13538,6 @@ public struct EventTimelineItem {
         self.isEditable = isEditable
         self.content = content
         self.timestamp = timestamp
-        self.reactions = reactions
         self.localSendState = localSendState
         self.localCreatedAt = localCreatedAt
         self.readReceipts = readReceipts
@@ -13524,7 +13561,6 @@ public struct FfiConverterTypeEventTimelineItem: FfiConverterRustBuffer {
                 isEditable: FfiConverterBool.read(from: &buf), 
                 content: FfiConverterTypeTimelineItemContent.read(from: &buf), 
                 timestamp: FfiConverterTypeTimestamp.read(from: &buf), 
-                reactions: FfiConverterSequenceTypeReaction.read(from: &buf), 
                 localSendState: FfiConverterOptionTypeEventSendState.read(from: &buf), 
                 localCreatedAt: FfiConverterOptionUInt64.read(from: &buf), 
                 readReceipts: FfiConverterDictionaryStringTypeReceipt.read(from: &buf), 
@@ -13543,7 +13579,6 @@ public struct FfiConverterTypeEventTimelineItem: FfiConverterRustBuffer {
         FfiConverterBool.write(value.isEditable, into: &buf)
         FfiConverterTypeTimelineItemContent.write(value.content, into: &buf)
         FfiConverterTypeTimestamp.write(value.timestamp, into: &buf)
-        FfiConverterSequenceTypeReaction.write(value.reactions, into: &buf)
         FfiConverterOptionTypeEventSendState.write(value.localSendState, into: &buf)
         FfiConverterOptionUInt64.write(value.localCreatedAt, into: &buf)
         FfiConverterDictionaryStringTypeReceipt.write(value.readReceipts, into: &buf)
@@ -14567,18 +14602,14 @@ public func FfiConverterTypeMentions_lower(_ value: Mentions) -> RustBuffer {
 public struct MessageContent {
     public var msgType: MessageType
     public var body: String
-    public var inReplyTo: InReplyToDetails?
-    public var threadRoot: String?
     public var isEdited: Bool
     public var mentions: Mentions?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(msgType: MessageType, body: String, inReplyTo: InReplyToDetails?, threadRoot: String?, isEdited: Bool, mentions: Mentions?) {
+    public init(msgType: MessageType, body: String, isEdited: Bool, mentions: Mentions?) {
         self.msgType = msgType
         self.body = body
-        self.inReplyTo = inReplyTo
-        self.threadRoot = threadRoot
         self.isEdited = isEdited
         self.mentions = mentions
     }
@@ -14592,8 +14623,6 @@ public struct FfiConverterTypeMessageContent: FfiConverterRustBuffer {
             try MessageContent(
                 msgType: FfiConverterTypeMessageType.read(from: &buf), 
                 body: FfiConverterString.read(from: &buf), 
-                inReplyTo: FfiConverterOptionTypeInReplyToDetails.read(from: &buf), 
-                threadRoot: FfiConverterOptionString.read(from: &buf), 
                 isEdited: FfiConverterBool.read(from: &buf), 
                 mentions: FfiConverterOptionTypeMentions.read(from: &buf)
         )
@@ -14602,8 +14631,6 @@ public struct FfiConverterTypeMessageContent: FfiConverterRustBuffer {
     public static func write(_ value: MessageContent, into buf: inout [UInt8]) {
         FfiConverterTypeMessageType.write(value.msgType, into: &buf)
         FfiConverterString.write(value.body, into: &buf)
-        FfiConverterOptionTypeInReplyToDetails.write(value.inReplyTo, into: &buf)
-        FfiConverterOptionString.write(value.threadRoot, into: &buf)
         FfiConverterBool.write(value.isEdited, into: &buf)
         FfiConverterOptionTypeMentions.write(value.mentions, into: &buf)
     }
@@ -14616,6 +14643,70 @@ public func FfiConverterTypeMessageContent_lift(_ buf: RustBuffer) throws -> Mes
 
 public func FfiConverterTypeMessageContent_lower(_ value: MessageContent) -> RustBuffer {
     return FfiConverterTypeMessageContent.lower(value)
+}
+
+
+/**
+ * A special kind of [`super::TimelineItemContent`] that groups together
+ * different room message types with their respective reactions and thread
+ * information.
+ */
+public struct MsgLikeContent {
+    public var kind: MsgLikeKind
+    public var reactions: [Reaction]
+    /**
+     * Event ID of the thread root, if this is a threaded message.
+     */
+    public var threadRoot: String?
+    /**
+     * The event this message is replying to, if any.
+     */
+    public var inReplyTo: InReplyToDetails?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(kind: MsgLikeKind, reactions: [Reaction], 
+        /**
+         * Event ID of the thread root, if this is a threaded message.
+         */threadRoot: String?, 
+        /**
+         * The event this message is replying to, if any.
+         */inReplyTo: InReplyToDetails?) {
+        self.kind = kind
+        self.reactions = reactions
+        self.threadRoot = threadRoot
+        self.inReplyTo = inReplyTo
+    }
+}
+
+
+
+public struct FfiConverterTypeMsgLikeContent: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MsgLikeContent {
+        return
+            try MsgLikeContent(
+                kind: FfiConverterTypeMsgLikeKind.read(from: &buf), 
+                reactions: FfiConverterSequenceTypeReaction.read(from: &buf), 
+                threadRoot: FfiConverterOptionString.read(from: &buf), 
+                inReplyTo: FfiConverterOptionTypeInReplyToDetails.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MsgLikeContent, into buf: inout [UInt8]) {
+        FfiConverterTypeMsgLikeKind.write(value.kind, into: &buf)
+        FfiConverterSequenceTypeReaction.write(value.reactions, into: &buf)
+        FfiConverterOptionString.write(value.threadRoot, into: &buf)
+        FfiConverterOptionTypeInReplyToDetails.write(value.inReplyTo, into: &buf)
+    }
+}
+
+
+public func FfiConverterTypeMsgLikeContent_lift(_ buf: RustBuffer) throws -> MsgLikeContent {
+    return try FfiConverterTypeMsgLikeContent.lift(buf)
+}
+
+public func FfiConverterTypeMsgLikeContent_lower(_ value: MsgLikeContent) -> RustBuffer {
+    return FfiConverterTypeMsgLikeContent.lower(value)
 }
 
 
@@ -14687,6 +14778,7 @@ public struct NotificationItem {
      */
     public var isNoisy: Bool?
     public var hasMention: Bool?
+    public var threadId: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -14695,12 +14787,13 @@ public struct NotificationItem {
          * Is the notification supposed to be at the "noisy" level?
          * Can be `None` if we couldn't determine this, because we lacked
          * information to create a push context.
-         */isNoisy: Bool?, hasMention: Bool?) {
+         */isNoisy: Bool?, hasMention: Bool?, threadId: String?) {
         self.event = event
         self.senderInfo = senderInfo
         self.roomInfo = roomInfo
         self.isNoisy = isNoisy
         self.hasMention = hasMention
+        self.threadId = threadId
     }
 }
 
@@ -14714,7 +14807,8 @@ public struct FfiConverterTypeNotificationItem: FfiConverterRustBuffer {
                 senderInfo: FfiConverterTypeNotificationSenderInfo.read(from: &buf), 
                 roomInfo: FfiConverterTypeNotificationRoomInfo.read(from: &buf), 
                 isNoisy: FfiConverterOptionBool.read(from: &buf), 
-                hasMention: FfiConverterOptionBool.read(from: &buf)
+                hasMention: FfiConverterOptionBool.read(from: &buf), 
+                threadId: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -14724,6 +14818,7 @@ public struct FfiConverterTypeNotificationItem: FfiConverterRustBuffer {
         FfiConverterTypeNotificationRoomInfo.write(value.roomInfo, into: &buf)
         FfiConverterOptionBool.write(value.isNoisy, into: &buf)
         FfiConverterOptionBool.write(value.hasMention, into: &buf)
+        FfiConverterOptionString.write(value.threadId, into: &buf)
     }
 }
 
@@ -14790,19 +14885,23 @@ public struct NotificationRoomInfo {
     public var displayName: String
     public var avatarUrl: String?
     public var canonicalAlias: String?
+    public var joinRule: JoinRule?
     public var joinedMembersCount: UInt64
     public var isEncrypted: Bool?
     public var isDirect: Bool
+    public var isPublic: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(displayName: String, avatarUrl: String?, canonicalAlias: String?, joinedMembersCount: UInt64, isEncrypted: Bool?, isDirect: Bool) {
+    public init(displayName: String, avatarUrl: String?, canonicalAlias: String?, joinRule: JoinRule?, joinedMembersCount: UInt64, isEncrypted: Bool?, isDirect: Bool, isPublic: Bool) {
         self.displayName = displayName
         self.avatarUrl = avatarUrl
         self.canonicalAlias = canonicalAlias
+        self.joinRule = joinRule
         self.joinedMembersCount = joinedMembersCount
         self.isEncrypted = isEncrypted
         self.isDirect = isDirect
+        self.isPublic = isPublic
     }
 }
 
@@ -14819,6 +14918,9 @@ extension NotificationRoomInfo: Equatable, Hashable {
         if lhs.canonicalAlias != rhs.canonicalAlias {
             return false
         }
+        if lhs.joinRule != rhs.joinRule {
+            return false
+        }
         if lhs.joinedMembersCount != rhs.joinedMembersCount {
             return false
         }
@@ -14828,6 +14930,9 @@ extension NotificationRoomInfo: Equatable, Hashable {
         if lhs.isDirect != rhs.isDirect {
             return false
         }
+        if lhs.isPublic != rhs.isPublic {
+            return false
+        }
         return true
     }
 
@@ -14835,9 +14940,11 @@ extension NotificationRoomInfo: Equatable, Hashable {
         hasher.combine(displayName)
         hasher.combine(avatarUrl)
         hasher.combine(canonicalAlias)
+        hasher.combine(joinRule)
         hasher.combine(joinedMembersCount)
         hasher.combine(isEncrypted)
         hasher.combine(isDirect)
+        hasher.combine(isPublic)
     }
 }
 
@@ -14849,9 +14956,11 @@ public struct FfiConverterTypeNotificationRoomInfo: FfiConverterRustBuffer {
                 displayName: FfiConverterString.read(from: &buf), 
                 avatarUrl: FfiConverterOptionString.read(from: &buf), 
                 canonicalAlias: FfiConverterOptionString.read(from: &buf), 
+                joinRule: FfiConverterOptionTypeJoinRule.read(from: &buf), 
                 joinedMembersCount: FfiConverterUInt64.read(from: &buf), 
                 isEncrypted: FfiConverterOptionBool.read(from: &buf), 
-                isDirect: FfiConverterBool.read(from: &buf)
+                isDirect: FfiConverterBool.read(from: &buf), 
+                isPublic: FfiConverterBool.read(from: &buf)
         )
     }
 
@@ -14859,9 +14968,11 @@ public struct FfiConverterTypeNotificationRoomInfo: FfiConverterRustBuffer {
         FfiConverterString.write(value.displayName, into: &buf)
         FfiConverterOptionString.write(value.avatarUrl, into: &buf)
         FfiConverterOptionString.write(value.canonicalAlias, into: &buf)
+        FfiConverterOptionTypeJoinRule.write(value.joinRule, into: &buf)
         FfiConverterUInt64.write(value.joinedMembersCount, into: &buf)
         FfiConverterOptionBool.write(value.isEncrypted, into: &buf)
         FfiConverterBool.write(value.isDirect, into: &buf)
+        FfiConverterBool.write(value.isPublic, into: &buf)
     }
 }
 
@@ -15736,7 +15847,7 @@ public struct RequestConfig {
     /**
      * Base delay between retries.
      */
-    public var retryTimeout: UInt64?
+    public var maxRetryTime: UInt64?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -15752,11 +15863,11 @@ public struct RequestConfig {
          */maxConcurrentRequests: UInt64?, 
         /**
          * Base delay between retries.
-         */retryTimeout: UInt64?) {
+         */maxRetryTime: UInt64?) {
         self.retryLimit = retryLimit
         self.timeout = timeout
         self.maxConcurrentRequests = maxConcurrentRequests
-        self.retryTimeout = retryTimeout
+        self.maxRetryTime = maxRetryTime
     }
 }
 
@@ -15773,7 +15884,7 @@ extension RequestConfig: Equatable, Hashable {
         if lhs.maxConcurrentRequests != rhs.maxConcurrentRequests {
             return false
         }
-        if lhs.retryTimeout != rhs.retryTimeout {
+        if lhs.maxRetryTime != rhs.maxRetryTime {
             return false
         }
         return true
@@ -15783,7 +15894,7 @@ extension RequestConfig: Equatable, Hashable {
         hasher.combine(retryLimit)
         hasher.combine(timeout)
         hasher.combine(maxConcurrentRequests)
-        hasher.combine(retryTimeout)
+        hasher.combine(maxRetryTime)
     }
 }
 
@@ -15795,7 +15906,7 @@ public struct FfiConverterTypeRequestConfig: FfiConverterRustBuffer {
                 retryLimit: FfiConverterOptionUInt64.read(from: &buf), 
                 timeout: FfiConverterOptionUInt64.read(from: &buf), 
                 maxConcurrentRequests: FfiConverterOptionUInt64.read(from: &buf), 
-                retryTimeout: FfiConverterOptionUInt64.read(from: &buf)
+                maxRetryTime: FfiConverterOptionUInt64.read(from: &buf)
         )
     }
 
@@ -15803,7 +15914,7 @@ public struct FfiConverterTypeRequestConfig: FfiConverterRustBuffer {
         FfiConverterOptionUInt64.write(value.retryLimit, into: &buf)
         FfiConverterOptionUInt64.write(value.timeout, into: &buf)
         FfiConverterOptionUInt64.write(value.maxConcurrentRequests, into: &buf)
-        FfiConverterOptionUInt64.write(value.retryTimeout, into: &buf)
+        FfiConverterOptionUInt64.write(value.maxRetryTime, into: &buf)
     }
 }
 
@@ -16660,60 +16771,74 @@ public func FfiConverterTypeRoomMember_lower(_ value: RoomMember) -> RustBuffer 
  * Contains the current user's room member info and the optional room member
  * info of the sender of the `m.room.member` event that this info represents.
  */
-public struct RoomMembershipDetails {
-    public var ownRoomMember: RoomMember
-    public var senderRoomMember: RoomMember?
+public struct RoomMemberWithSenderInfo {
+    /**
+     * The room member.
+     */
+    public var roomMember: RoomMember
+    /**
+     * The info of the sender of the event `room_member` is based on, if
+     * available.
+     */
+    public var senderInfo: RoomMember?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(ownRoomMember: RoomMember, senderRoomMember: RoomMember?) {
-        self.ownRoomMember = ownRoomMember
-        self.senderRoomMember = senderRoomMember
+    public init(
+        /**
+         * The room member.
+         */roomMember: RoomMember, 
+        /**
+         * The info of the sender of the event `room_member` is based on, if
+         * available.
+         */senderInfo: RoomMember?) {
+        self.roomMember = roomMember
+        self.senderInfo = senderInfo
     }
 }
 
 
 
-extension RoomMembershipDetails: Equatable, Hashable {
-    public static func ==(lhs: RoomMembershipDetails, rhs: RoomMembershipDetails) -> Bool {
-        if lhs.ownRoomMember != rhs.ownRoomMember {
+extension RoomMemberWithSenderInfo: Equatable, Hashable {
+    public static func ==(lhs: RoomMemberWithSenderInfo, rhs: RoomMemberWithSenderInfo) -> Bool {
+        if lhs.roomMember != rhs.roomMember {
             return false
         }
-        if lhs.senderRoomMember != rhs.senderRoomMember {
+        if lhs.senderInfo != rhs.senderInfo {
             return false
         }
         return true
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(ownRoomMember)
-        hasher.combine(senderRoomMember)
+        hasher.combine(roomMember)
+        hasher.combine(senderInfo)
     }
 }
 
 
-public struct FfiConverterTypeRoomMembershipDetails: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RoomMembershipDetails {
+public struct FfiConverterTypeRoomMemberWithSenderInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RoomMemberWithSenderInfo {
         return
-            try RoomMembershipDetails(
-                ownRoomMember: FfiConverterTypeRoomMember.read(from: &buf), 
-                senderRoomMember: FfiConverterOptionTypeRoomMember.read(from: &buf)
+            try RoomMemberWithSenderInfo(
+                roomMember: FfiConverterTypeRoomMember.read(from: &buf), 
+                senderInfo: FfiConverterOptionTypeRoomMember.read(from: &buf)
         )
     }
 
-    public static func write(_ value: RoomMembershipDetails, into buf: inout [UInt8]) {
-        FfiConverterTypeRoomMember.write(value.ownRoomMember, into: &buf)
-        FfiConverterOptionTypeRoomMember.write(value.senderRoomMember, into: &buf)
+    public static func write(_ value: RoomMemberWithSenderInfo, into buf: inout [UInt8]) {
+        FfiConverterTypeRoomMember.write(value.roomMember, into: &buf)
+        FfiConverterOptionTypeRoomMember.write(value.senderInfo, into: &buf)
     }
 }
 
 
-public func FfiConverterTypeRoomMembershipDetails_lift(_ buf: RustBuffer) throws -> RoomMembershipDetails {
-    return try FfiConverterTypeRoomMembershipDetails.lift(buf)
+public func FfiConverterTypeRoomMemberWithSenderInfo_lift(_ buf: RustBuffer) throws -> RoomMemberWithSenderInfo {
+    return try FfiConverterTypeRoomMemberWithSenderInfo.lift(buf)
 }
 
-public func FfiConverterTypeRoomMembershipDetails_lower(_ value: RoomMembershipDetails) -> RustBuffer {
-    return FfiConverterTypeRoomMembershipDetails.lower(value)
+public func FfiConverterTypeRoomMemberWithSenderInfo_lower(_ value: RoomMemberWithSenderInfo) -> RustBuffer {
+    return FfiConverterTypeRoomMemberWithSenderInfo.lower(value)
 }
 
 
@@ -23332,6 +23457,114 @@ public func FfiConverterTypeMessageType_lower(_ value: MessageType) -> RustBuffe
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum MsgLikeKind {
+    
+    /**
+     * An `m.room.message` event or extensible event, including edits.
+     */
+    case message(content: MessageContent
+    )
+    /**
+     * An `m.sticker` event.
+     */
+    case sticker(body: String, info: ImageInfo, source: MediaSource
+    )
+    /**
+     * An `m.poll.start` event.
+     */
+    case poll(question: String, kind: PollKind, maxSelections: UInt64, answers: [PollAnswer], votes: [String: [String]], endTime: Timestamp?, hasBeenEdited: Bool
+    )
+    /**
+     * A redacted message.
+     */
+    case redacted
+    /**
+     * An `m.room.encrypted` event that could not be decrypted.
+     */
+    case unableToDecrypt(msg: EncryptedMessage
+    )
+}
+
+
+public struct FfiConverterTypeMsgLikeKind: FfiConverterRustBuffer {
+    typealias SwiftType = MsgLikeKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MsgLikeKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .message(content: try FfiConverterTypeMessageContent.read(from: &buf)
+        )
+        
+        case 2: return .sticker(body: try FfiConverterString.read(from: &buf), info: try FfiConverterTypeImageInfo.read(from: &buf), source: try FfiConverterTypeMediaSource.read(from: &buf)
+        )
+        
+        case 3: return .poll(question: try FfiConverterString.read(from: &buf), kind: try FfiConverterTypePollKind.read(from: &buf), maxSelections: try FfiConverterUInt64.read(from: &buf), answers: try FfiConverterSequenceTypePollAnswer.read(from: &buf), votes: try FfiConverterDictionaryStringSequenceString.read(from: &buf), endTime: try FfiConverterOptionTypeTimestamp.read(from: &buf), hasBeenEdited: try FfiConverterBool.read(from: &buf)
+        )
+        
+        case 4: return .redacted
+        
+        case 5: return .unableToDecrypt(msg: try FfiConverterTypeEncryptedMessage.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MsgLikeKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .message(content):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeMessageContent.write(content, into: &buf)
+            
+        
+        case let .sticker(body,info,source):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(body, into: &buf)
+            FfiConverterTypeImageInfo.write(info, into: &buf)
+            FfiConverterTypeMediaSource.write(source, into: &buf)
+            
+        
+        case let .poll(question,kind,maxSelections,answers,votes,endTime,hasBeenEdited):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(question, into: &buf)
+            FfiConverterTypePollKind.write(kind, into: &buf)
+            FfiConverterUInt64.write(maxSelections, into: &buf)
+            FfiConverterSequenceTypePollAnswer.write(answers, into: &buf)
+            FfiConverterDictionaryStringSequenceString.write(votes, into: &buf)
+            FfiConverterOptionTypeTimestamp.write(endTime, into: &buf)
+            FfiConverterBool.write(hasBeenEdited, into: &buf)
+            
+        
+        case .redacted:
+            writeInt(&buf, Int32(4))
+        
+        
+        case let .unableToDecrypt(msg):
+            writeInt(&buf, Int32(5))
+            FfiConverterTypeEncryptedMessage.write(msg, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeMsgLikeKind_lift(_ buf: RustBuffer) throws -> MsgLikeKind {
+    return try FfiConverterTypeMsgLikeKind.lift(buf)
+}
+
+public func FfiConverterTypeMsgLikeKind_lower(_ value: MsgLikeKind) -> RustBuffer {
+    return FfiConverterTypeMsgLikeKind.lower(value)
+}
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum NotificationEvent {
     
     case timeline(event: TimelineEvent
@@ -28090,17 +28323,10 @@ extension TimelineFocus: Equatable, Hashable {}
 
 public enum TimelineItemContent {
     
-    case message(content: MessageContent
-    )
-    case redactedMessage
-    case sticker(body: String, info: ImageInfo, source: MediaSource
-    )
-    case poll(question: String, kind: PollKind, maxSelections: UInt64, answers: [PollAnswer], votes: [String: [String]], endTime: Timestamp?, hasBeenEdited: Bool
+    case msgLike(content: MsgLikeContent
     )
     case callInvite
     case callNotify
-    case unableToDecrypt(msg: EncryptedMessage
-    )
     case roomMembership(userId: String, userDisplayName: String?, change: MembershipChange?, reason: String?
     )
     case profileChange(displayName: String?, prevDisplayName: String?, avatarUrl: String?, prevAvatarUrl: String?
@@ -28121,37 +28347,26 @@ public struct FfiConverterTypeTimelineItemContent: FfiConverterRustBuffer {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
-        case 1: return .message(content: try FfiConverterTypeMessageContent.read(from: &buf)
+        case 1: return .msgLike(content: try FfiConverterTypeMsgLikeContent.read(from: &buf)
         )
         
-        case 2: return .redactedMessage
+        case 2: return .callInvite
         
-        case 3: return .sticker(body: try FfiConverterString.read(from: &buf), info: try FfiConverterTypeImageInfo.read(from: &buf), source: try FfiConverterTypeMediaSource.read(from: &buf)
+        case 3: return .callNotify
+        
+        case 4: return .roomMembership(userId: try FfiConverterString.read(from: &buf), userDisplayName: try FfiConverterOptionString.read(from: &buf), change: try FfiConverterOptionTypeMembershipChange.read(from: &buf), reason: try FfiConverterOptionString.read(from: &buf)
         )
         
-        case 4: return .poll(question: try FfiConverterString.read(from: &buf), kind: try FfiConverterTypePollKind.read(from: &buf), maxSelections: try FfiConverterUInt64.read(from: &buf), answers: try FfiConverterSequenceTypePollAnswer.read(from: &buf), votes: try FfiConverterDictionaryStringSequenceString.read(from: &buf), endTime: try FfiConverterOptionTypeTimestamp.read(from: &buf), hasBeenEdited: try FfiConverterBool.read(from: &buf)
+        case 5: return .profileChange(displayName: try FfiConverterOptionString.read(from: &buf), prevDisplayName: try FfiConverterOptionString.read(from: &buf), avatarUrl: try FfiConverterOptionString.read(from: &buf), prevAvatarUrl: try FfiConverterOptionString.read(from: &buf)
         )
         
-        case 5: return .callInvite
-        
-        case 6: return .callNotify
-        
-        case 7: return .unableToDecrypt(msg: try FfiConverterTypeEncryptedMessage.read(from: &buf)
+        case 6: return .state(stateKey: try FfiConverterString.read(from: &buf), content: try FfiConverterTypeOtherState.read(from: &buf)
         )
         
-        case 8: return .roomMembership(userId: try FfiConverterString.read(from: &buf), userDisplayName: try FfiConverterOptionString.read(from: &buf), change: try FfiConverterOptionTypeMembershipChange.read(from: &buf), reason: try FfiConverterOptionString.read(from: &buf)
+        case 7: return .failedToParseMessageLike(eventType: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
         )
         
-        case 9: return .profileChange(displayName: try FfiConverterOptionString.read(from: &buf), prevDisplayName: try FfiConverterOptionString.read(from: &buf), avatarUrl: try FfiConverterOptionString.read(from: &buf), prevAvatarUrl: try FfiConverterOptionString.read(from: &buf)
-        )
-        
-        case 10: return .state(stateKey: try FfiConverterString.read(from: &buf), content: try FfiConverterTypeOtherState.read(from: &buf)
-        )
-        
-        case 11: return .failedToParseMessageLike(eventType: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 12: return .failedToParseState(eventType: try FfiConverterString.read(from: &buf), stateKey: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        case 8: return .failedToParseState(eventType: try FfiConverterString.read(from: &buf), stateKey: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -28162,48 +28377,21 @@ public struct FfiConverterTypeTimelineItemContent: FfiConverterRustBuffer {
         switch value {
         
         
-        case let .message(content):
+        case let .msgLike(content):
             writeInt(&buf, Int32(1))
-            FfiConverterTypeMessageContent.write(content, into: &buf)
-            
-        
-        case .redactedMessage:
-            writeInt(&buf, Int32(2))
-        
-        
-        case let .sticker(body,info,source):
-            writeInt(&buf, Int32(3))
-            FfiConverterString.write(body, into: &buf)
-            FfiConverterTypeImageInfo.write(info, into: &buf)
-            FfiConverterTypeMediaSource.write(source, into: &buf)
-            
-        
-        case let .poll(question,kind,maxSelections,answers,votes,endTime,hasBeenEdited):
-            writeInt(&buf, Int32(4))
-            FfiConverterString.write(question, into: &buf)
-            FfiConverterTypePollKind.write(kind, into: &buf)
-            FfiConverterUInt64.write(maxSelections, into: &buf)
-            FfiConverterSequenceTypePollAnswer.write(answers, into: &buf)
-            FfiConverterDictionaryStringSequenceString.write(votes, into: &buf)
-            FfiConverterOptionTypeTimestamp.write(endTime, into: &buf)
-            FfiConverterBool.write(hasBeenEdited, into: &buf)
+            FfiConverterTypeMsgLikeContent.write(content, into: &buf)
             
         
         case .callInvite:
-            writeInt(&buf, Int32(5))
+            writeInt(&buf, Int32(2))
         
         
         case .callNotify:
-            writeInt(&buf, Int32(6))
+            writeInt(&buf, Int32(3))
         
-        
-        case let .unableToDecrypt(msg):
-            writeInt(&buf, Int32(7))
-            FfiConverterTypeEncryptedMessage.write(msg, into: &buf)
-            
         
         case let .roomMembership(userId,userDisplayName,change,reason):
-            writeInt(&buf, Int32(8))
+            writeInt(&buf, Int32(4))
             FfiConverterString.write(userId, into: &buf)
             FfiConverterOptionString.write(userDisplayName, into: &buf)
             FfiConverterOptionTypeMembershipChange.write(change, into: &buf)
@@ -28211,7 +28399,7 @@ public struct FfiConverterTypeTimelineItemContent: FfiConverterRustBuffer {
             
         
         case let .profileChange(displayName,prevDisplayName,avatarUrl,prevAvatarUrl):
-            writeInt(&buf, Int32(9))
+            writeInt(&buf, Int32(5))
             FfiConverterOptionString.write(displayName, into: &buf)
             FfiConverterOptionString.write(prevDisplayName, into: &buf)
             FfiConverterOptionString.write(avatarUrl, into: &buf)
@@ -28219,19 +28407,19 @@ public struct FfiConverterTypeTimelineItemContent: FfiConverterRustBuffer {
             
         
         case let .state(stateKey,content):
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(6))
             FfiConverterString.write(stateKey, into: &buf)
             FfiConverterTypeOtherState.write(content, into: &buf)
             
         
         case let .failedToParseMessageLike(eventType,error):
-            writeInt(&buf, Int32(11))
+            writeInt(&buf, Int32(7))
             FfiConverterString.write(eventType, into: &buf)
             FfiConverterString.write(error, into: &buf)
             
         
         case let .failedToParseState(eventType,stateKey,error):
-            writeInt(&buf, Int32(12))
+            writeInt(&buf, Int32(8))
             FfiConverterString.write(eventType, into: &buf)
             FfiConverterString.write(stateKey, into: &buf)
             FfiConverterString.write(error, into: &buf)
@@ -31896,8 +32084,8 @@ fileprivate struct FfiConverterOptionTypeRoomMember: FfiConverterRustBuffer {
     }
 }
 
-fileprivate struct FfiConverterOptionTypeRoomMembershipDetails: FfiConverterRustBuffer {
-    typealias SwiftType = RoomMembershipDetails?
+fileprivate struct FfiConverterOptionTypeRoomMemberWithSenderInfo: FfiConverterRustBuffer {
+    typealias SwiftType = RoomMemberWithSenderInfo?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
@@ -31905,13 +32093,13 @@ fileprivate struct FfiConverterOptionTypeRoomMembershipDetails: FfiConverterRust
             return
         }
         writeInt(&buf, Int8(1))
-        FfiConverterTypeRoomMembershipDetails.write(value, into: &buf)
+        FfiConverterTypeRoomMemberWithSenderInfo.write(value, into: &buf)
     }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
-        case 1: return try FfiConverterTypeRoomMembershipDetails.read(from: &buf)
+        case 1: return try FfiConverterTypeRoomMemberWithSenderInfo.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -34616,6 +34804,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_member_display_name() != 33206) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_member_with_sender_info() != 64964) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_members() != 42691) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -34862,7 +35053,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_leave() != 21886) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_own_membership_details() != 1443) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_roompreview_own_membership_details() != 46321) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_sendattachmentjoinhandle_cancel() != 62384) {
