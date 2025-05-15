@@ -514,95 +514,59 @@ public func FfiConverterTypeTchapGetInstance_lower(_ value: TchapGetInstance) ->
 }
 
 
+public struct TchapGetInstanceConfig {
+    public var homeServer: String
+    public var userAgent: String
 
-
-public protocol TchapGetInstanceConfigProtocol : AnyObject {
-    
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(homeServer: String, userAgent: String) {
+        self.homeServer = homeServer
+        self.userAgent = userAgent
+    }
 }
 
-open class TchapGetInstanceConfig:
-    TchapGetInstanceConfigProtocol {
-    fileprivate let pointer: UnsafeMutableRawPointer!
 
-    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-    public struct NoPointer {
-        public init() {}
-    }
 
-    // TODO: We'd like this to be `private` but for Swifty reasons,
-    // we can't implement `FfiConverter` without making this `required` and we can't
-    // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
-
-    /// This constructor can be used to instantiate a fake object.
-    /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
-    ///
-    /// - Warning:
-    ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
-    }
-
-    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_matrix_sdk_tchap_fn_clone_tchapgetinstanceconfig(self.pointer, $0) }
-    }
-    // No primary constructor declared for this class.
-
-    deinit {
-        guard let pointer = pointer else {
-            return
+extension TchapGetInstanceConfig: Equatable, Hashable {
+    public static func ==(lhs: TchapGetInstanceConfig, rhs: TchapGetInstanceConfig) -> Bool {
+        if lhs.homeServer != rhs.homeServer {
+            return false
         }
-
-        try! rustCall { uniffi_matrix_sdk_tchap_fn_free_tchapgetinstanceconfig(pointer, $0) }
+        if lhs.userAgent != rhs.userAgent {
+            return false
+        }
+        return true
     }
 
-    
-
-    
-
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(homeServer)
+        hasher.combine(userAgent)
+    }
 }
 
-public struct FfiConverterTypeTchapGetInstanceConfig: FfiConverter {
 
-    typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = TchapGetInstanceConfig
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> TchapGetInstanceConfig {
-        return TchapGetInstanceConfig(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: TchapGetInstanceConfig) -> UnsafeMutableRawPointer {
-        return value.uniffiClonePointer()
-    }
-
+public struct FfiConverterTypeTchapGetInstanceConfig: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TchapGetInstanceConfig {
-        let v: UInt64 = try readInt(&buf)
-        // The Rust code won't compile if a pointer won't fit in a UInt64.
-        // We have to go via `UInt` because that's the thing that's the size of a pointer.
-        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
-            throw UniffiInternalError.unexpectedNullPointer
-        }
-        return try lift(ptr!)
+        return
+            try TchapGetInstanceConfig(
+                homeServer: FfiConverterString.read(from: &buf), 
+                userAgent: FfiConverterString.read(from: &buf)
+        )
     }
 
     public static func write(_ value: TchapGetInstanceConfig, into buf: inout [UInt8]) {
-        // This fiddling is because `Int` is the thing that's the same size as a pointer.
-        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+        FfiConverterString.write(value.homeServer, into: &buf)
+        FfiConverterString.write(value.userAgent, into: &buf)
     }
 }
 
 
-
-
-public func FfiConverterTypeTchapGetInstanceConfig_lift(_ pointer: UnsafeMutableRawPointer) throws -> TchapGetInstanceConfig {
-    return try FfiConverterTypeTchapGetInstanceConfig.lift(pointer)
+public func FfiConverterTypeTchapGetInstanceConfig_lift(_ buf: RustBuffer) throws -> TchapGetInstanceConfig {
+    return try FfiConverterTypeTchapGetInstanceConfig.lift(buf)
 }
 
-public func FfiConverterTypeTchapGetInstanceConfig_lower(_ value: TchapGetInstanceConfig) -> UnsafeMutableRawPointer {
+public func FfiConverterTypeTchapGetInstanceConfig_lower(_ value: TchapGetInstanceConfig) -> RustBuffer {
     return FfiConverterTypeTchapGetInstanceConfig.lower(value)
 }
 

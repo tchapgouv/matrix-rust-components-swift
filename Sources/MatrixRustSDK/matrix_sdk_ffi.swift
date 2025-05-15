@@ -34243,7 +34243,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_func_suggested_role_for_power_level() != 48532) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 45343) {
+    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 12619) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roommessageeventcontentwithoutrelation_with_mentions() != 8867) {
