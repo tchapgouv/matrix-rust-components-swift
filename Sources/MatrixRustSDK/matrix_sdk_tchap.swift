@@ -423,6 +423,99 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 
 
+public protocol TchapGetInstanceProtocol : AnyObject {
+    
+}
+
+open class TchapGetInstance:
+    TchapGetInstanceProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    /// This constructor can be used to instantiate a fake object.
+    /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    ///
+    /// - Warning:
+    ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_matrix_sdk_tchap_fn_clone_tchapgetinstance(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_matrix_sdk_tchap_fn_free_tchapgetinstance(pointer, $0) }
+    }
+
+    
+
+    
+
+}
+
+public struct FfiConverterTypeTchapGetInstance: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = TchapGetInstance
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> TchapGetInstance {
+        return TchapGetInstance(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: TchapGetInstance) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TchapGetInstance {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: TchapGetInstance, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+public func FfiConverterTypeTchapGetInstance_lift(_ pointer: UnsafeMutableRawPointer) throws -> TchapGetInstance {
+    return try FfiConverterTypeTchapGetInstance.lift(pointer)
+}
+
+public func FfiConverterTypeTchapGetInstance_lower(_ value: TchapGetInstance) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeTchapGetInstance.lower(value)
+}
+
+
+
+
 public protocol TchapGetInstanceConfigProtocol : AnyObject {
     
 }
@@ -514,95 +607,51 @@ public func FfiConverterTypeTchapGetInstanceConfig_lower(_ value: TchapGetInstan
 }
 
 
+public struct TchapGetInstanceResult {
+    public var hs: String
 
-
-public protocol TchapGetInstanceResultProtocol : AnyObject {
-    
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(hs: String) {
+        self.hs = hs
+    }
 }
 
-open class TchapGetInstanceResult:
-    TchapGetInstanceResultProtocol {
-    fileprivate let pointer: UnsafeMutableRawPointer!
 
-    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-    public struct NoPointer {
-        public init() {}
-    }
 
-    // TODO: We'd like this to be `private` but for Swifty reasons,
-    // we can't implement `FfiConverter` without making this `required` and we can't
-    // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
-
-    /// This constructor can be used to instantiate a fake object.
-    /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
-    ///
-    /// - Warning:
-    ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
-    }
-
-    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_matrix_sdk_tchap_fn_clone_tchapgetinstanceresult(self.pointer, $0) }
-    }
-    // No primary constructor declared for this class.
-
-    deinit {
-        guard let pointer = pointer else {
-            return
+extension TchapGetInstanceResult: Equatable, Hashable {
+    public static func ==(lhs: TchapGetInstanceResult, rhs: TchapGetInstanceResult) -> Bool {
+        if lhs.hs != rhs.hs {
+            return false
         }
-
-        try! rustCall { uniffi_matrix_sdk_tchap_fn_free_tchapgetinstanceresult(pointer, $0) }
+        return true
     }
 
-    
-
-    
-
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(hs)
+    }
 }
 
-public struct FfiConverterTypeTchapGetInstanceResult: FfiConverter {
 
-    typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = TchapGetInstanceResult
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> TchapGetInstanceResult {
-        return TchapGetInstanceResult(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: TchapGetInstanceResult) -> UnsafeMutableRawPointer {
-        return value.uniffiClonePointer()
-    }
-
+public struct FfiConverterTypeTchapGetInstanceResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TchapGetInstanceResult {
-        let v: UInt64 = try readInt(&buf)
-        // The Rust code won't compile if a pointer won't fit in a UInt64.
-        // We have to go via `UInt` because that's the thing that's the size of a pointer.
-        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
-            throw UniffiInternalError.unexpectedNullPointer
-        }
-        return try lift(ptr!)
+        return
+            try TchapGetInstanceResult(
+                hs: FfiConverterString.read(from: &buf)
+        )
     }
 
     public static func write(_ value: TchapGetInstanceResult, into buf: inout [UInt8]) {
-        // This fiddling is because `Int` is the thing that's the same size as a pointer.
-        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+        FfiConverterString.write(value.hs, into: &buf)
     }
 }
 
 
-
-
-public func FfiConverterTypeTchapGetInstanceResult_lift(_ pointer: UnsafeMutableRawPointer) throws -> TchapGetInstanceResult {
-    return try FfiConverterTypeTchapGetInstanceResult.lift(pointer)
+public func FfiConverterTypeTchapGetInstanceResult_lift(_ buf: RustBuffer) throws -> TchapGetInstanceResult {
+    return try FfiConverterTypeTchapGetInstanceResult.lift(buf)
 }
 
-public func FfiConverterTypeTchapGetInstanceResult_lower(_ value: TchapGetInstanceResult) -> UnsafeMutableRawPointer {
+public func FfiConverterTypeTchapGetInstanceResult_lower(_ value: TchapGetInstanceResult) -> RustBuffer {
     return FfiConverterTypeTchapGetInstanceResult.lower(value)
 }
 

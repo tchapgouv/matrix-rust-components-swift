@@ -27994,6 +27994,74 @@ extension SyncServiceState: Equatable, Hashable {}
 
 
 
+
+public enum TchapGetInstanceError2 {
+
+    
+    
+    case NoClient(message: String)
+    
+    case BadUrl(message: String)
+    
+    case InvalidResult(message: String)
+    
+}
+
+
+public struct FfiConverterTypeTchapGetInstanceError2: FfiConverterRustBuffer {
+    typealias SwiftType = TchapGetInstanceError2
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TchapGetInstanceError2 {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        
+
+        
+        case 1: return .NoClient(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .BadUrl(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 3: return .InvalidResult(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: TchapGetInstanceError2, into buf: inout [UInt8]) {
+        switch value {
+
+        
+
+        
+        case .NoClient(_ /* message is ignored*/):
+            writeInt(&buf, Int32(1))
+        case .BadUrl(_ /* message is ignored*/):
+            writeInt(&buf, Int32(2))
+        case .InvalidResult(_ /* message is ignored*/):
+            writeInt(&buf, Int32(3))
+
+        
+        }
+    }
+}
+
+
+extension TchapGetInstanceError2: Equatable, Hashable {}
+
+extension TchapGetInstanceError2: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
@@ -33669,6 +33737,8 @@ fileprivate struct FfiConverterDictionaryStringSequenceString: FfiConverterRustB
 
 
 
+
+
 /**
  * Typealias from the type name used in the UDL file to the builtin type.  This
  * is needed because the UDL type name is used in function/method signatures.
@@ -34050,6 +34120,20 @@ public func suggestedRoleForPowerLevel(powerLevel: Int64) -> RoomMemberRole {
     )
 })
 }
+public func tchapGetInstance(config: TchapGetInstanceConfig, forEmail: String)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_func_tchap_get_instance(FfiConverterTypeTchapGetInstanceConfig_lower(config),FfiConverterString.lower(forEmail)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeTchapGetInstanceError2.lift
+        )
+}
 
 private enum InitializationResult {
     case ok
@@ -34142,6 +34226,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_func_suggested_role_for_power_level() != 48532) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 48905) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roommessageeventcontentwithoutrelation_with_mentions() != 8867) {
