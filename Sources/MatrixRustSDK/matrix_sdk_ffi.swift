@@ -27995,7 +27995,7 @@ extension SyncServiceState: Equatable, Hashable {}
 
 
 
-public enum TchapGetInstanceError2 {
+public enum TchapGetInstanceErrorBridged {
 
     
     
@@ -28008,10 +28008,10 @@ public enum TchapGetInstanceError2 {
 }
 
 
-public struct FfiConverterTypeTchapGetInstanceError2: FfiConverterRustBuffer {
-    typealias SwiftType = TchapGetInstanceError2
+public struct FfiConverterTypeTchapGetInstanceErrorBridged: FfiConverterRustBuffer {
+    typealias SwiftType = TchapGetInstanceErrorBridged
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TchapGetInstanceError2 {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TchapGetInstanceErrorBridged {
         let variant: Int32 = try readInt(&buf)
         switch variant {
 
@@ -28035,7 +28035,7 @@ public struct FfiConverterTypeTchapGetInstanceError2: FfiConverterRustBuffer {
         }
     }
 
-    public static func write(_ value: TchapGetInstanceError2, into buf: inout [UInt8]) {
+    public static func write(_ value: TchapGetInstanceErrorBridged, into buf: inout [UInt8]) {
         switch value {
 
         
@@ -28054,9 +28054,9 @@ public struct FfiConverterTypeTchapGetInstanceError2: FfiConverterRustBuffer {
 }
 
 
-extension TchapGetInstanceError2: Equatable, Hashable {}
+extension TchapGetInstanceErrorBridged: Equatable, Hashable {}
 
-extension TchapGetInstanceError2: Foundation.LocalizedError {
+extension TchapGetInstanceErrorBridged: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
     }
@@ -34120,6 +34120,21 @@ public func suggestedRoleForPowerLevel(powerLevel: Int64) -> RoomMemberRole {
     )
 })
 }
+/**
+ * Function tchapGetInstance(config, for_email) is used to request backend
+ * which homeServer is attributed to an email.
+ *
+ * # Arguments
+ *
+ * * `config` - A struct containing the configuration for the request:
+ * * `homeServer`: String - The homeServer to use for the request (e.g. "agent.dinum.tchap.gouv.fr")
+ * * `userAgent`: String - The `userAgent` value transmitted with the request)
+ *
+ * # Returns
+ * A `Result` containing:
+ * * if successful: the homeServer to use for this user's email (e.g. "agent.agriculture.tchap.gouv.fr")
+ * * If failure: the explanation of the failure
+ */
 public func tchapGetInstance(config: TchapGetInstanceConfig, forEmail: String)async throws  -> String {
     return
         try  await uniffiRustCallAsync(
@@ -34131,7 +34146,7 @@ public func tchapGetInstance(config: TchapGetInstanceConfig, forEmail: String)as
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
             liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeTchapGetInstanceError2.lift
+            errorHandler: FfiConverterTypeTchapGetInstanceErrorBridged.lift
         )
 }
 
@@ -34228,7 +34243,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_func_suggested_role_for_power_level() != 48532) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 48905) {
+    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 45343) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roommessageeventcontentwithoutrelation_with_mentions() != 8867) {
