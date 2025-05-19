@@ -34135,19 +34135,13 @@ public func suggestedRoleForPowerLevel(powerLevel: Int64) -> RoomMemberRole {
  * * if successful: the homeServer to use for this user's email (e.g. "agent.agriculture.tchap.gouv.fr")
  * * If failure: the explanation of the failure
  */
-public func tchapGetInstance(config: TchapGetInstanceConfig, forEmail: String)async throws  -> String {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_func_tchap_get_instance(FfiConverterTypeTchapGetInstanceConfig_lower(config),FfiConverterString.lower(forEmail)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeTchapGetInstanceErrorBridged.lift
-        )
+public func tchapGetInstance(config: TchapGetInstanceConfig, forEmail: String)throws  -> String {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeTchapGetInstanceErrorBridged.lift) {
+    uniffi_matrix_sdk_ffi_fn_func_tchap_get_instance(
+        FfiConverterTypeTchapGetInstanceConfig_lower(config),
+        FfiConverterString.lower(forEmail),$0
+    )
+})
 }
 
 private enum InitializationResult {
@@ -34243,7 +34237,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_func_suggested_role_for_power_level() != 48532) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 12619) {
+    if (uniffi_matrix_sdk_ffi_checksum_func_tchap_get_instance() != 4579) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roommessageeventcontentwithoutrelation_with_mentions() != 8867) {
