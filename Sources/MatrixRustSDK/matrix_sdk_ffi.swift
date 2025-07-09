@@ -757,6 +757,11 @@ public protocol ClientProtocol : AnyObject {
     func ignoredUsers() async throws  -> [String]
     
     /**
+     * Checks if the server supports the report room API.
+     */
+    func isReportRoomApiSupported() async throws  -> Bool
+    
+    /**
      * Checks if a room alias is not in use yet.
      *
      * Returns:
@@ -1659,6 +1664,26 @@ open func ignoredUsers()async throws  -> [String] {
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
             liftFunc: FfiConverterSequenceString.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+}
+    
+    /**
+     * Checks if the server supports the report room API.
+     */
+open func isReportRoomApiSupported()async throws  -> Bool {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_client_is_report_room_api_supported(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_i8,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_i8,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_i8,
+            liftFunc: FfiConverterBool.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
 }
@@ -4561,6 +4586,14 @@ public protocol NotificationClientProtocol : AnyObject {
      */
     func getNotification(roomId: String, eventId: String) async throws  -> NotificationItem?
     
+    /**
+     * Fetches a room by its ID using the in-memory state store backed client.
+     *
+     * Useful to retrieve room information after running the limited
+     * notification client sliding sync loop.
+     */
+    func getRoom(roomId: String) throws  -> Room?
+    
 }
 
 open class NotificationClient:
@@ -4623,6 +4656,20 @@ open func getNotification(roomId: String, eventId: String)async throws  -> Notif
             liftFunc: FfiConverterOptionTypeNotificationItem.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
+}
+    
+    /**
+     * Fetches a room by its ID using the in-memory state store backed client.
+     *
+     * Useful to retrieve room information after running the limited
+     * notification client sliding sync loop.
+     */
+open func getRoom(roomId: String)throws  -> Room? {
+    return try  FfiConverterOptionTypeRoom.lift(try rustCallWithError(FfiConverterTypeClientError.lift) {
+    uniffi_matrix_sdk_ffi_fn_method_notificationclient_get_room(self.uniffiClonePointer(),
+        FfiConverterString.lower(roomId),$0
+    )
+})
 }
     
 
@@ -10813,6 +10860,108 @@ public func FfiConverterTypeTaskHandle_lower(_ value: TaskHandle) -> UnsafeMutab
 
 
 
+public protocol ThreadSummaryProtocol : AnyObject {
+    
+    func latestEvent()  -> ThreadSummaryLatestEventDetails
+    
+}
+
+open class ThreadSummary:
+    ThreadSummaryProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    /// This constructor can be used to instantiate a fake object.
+    /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    ///
+    /// - Warning:
+    ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_matrix_sdk_ffi_fn_clone_threadsummary(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_matrix_sdk_ffi_fn_free_threadsummary(pointer, $0) }
+    }
+
+    
+
+    
+open func latestEvent() -> ThreadSummaryLatestEventDetails {
+    return try!  FfiConverterTypeThreadSummaryLatestEventDetails.lift(try! rustCall() {
+    uniffi_matrix_sdk_ffi_fn_method_threadsummary_latest_event(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+
+}
+
+public struct FfiConverterTypeThreadSummary: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = ThreadSummary
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ThreadSummary {
+        return ThreadSummary(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: ThreadSummary) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ThreadSummary {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: ThreadSummary, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+public func FfiConverterTypeThreadSummary_lift(_ pointer: UnsafeMutableRawPointer) throws -> ThreadSummary {
+    return try FfiConverterTypeThreadSummary.lift(pointer)
+}
+
+public func FfiConverterTypeThreadSummary_lower(_ value: ThreadSummary) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeThreadSummary.lower(value)
+}
+
+
+
+
 public protocol TimelineProtocol : AnyObject {
     
     func addListener(listener: TimelineListener) async  -> TaskHandle
@@ -14655,27 +14804,35 @@ public struct MsgLikeContent {
     public var kind: MsgLikeKind
     public var reactions: [Reaction]
     /**
-     * Event ID of the thread root, if this is a threaded message.
-     */
-    public var threadRoot: String?
-    /**
      * The event this message is replying to, if any.
      */
     public var inReplyTo: InReplyToDetails?
+    /**
+     * Event ID of the thread root, if this is a message in a thread.
+     */
+    public var threadRoot: String?
+    /**
+     * Details about the thread this message is the root of.
+     */
+    public var threadSummary: ThreadSummary?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(kind: MsgLikeKind, reactions: [Reaction], 
         /**
-         * Event ID of the thread root, if this is a threaded message.
+         * The event this message is replying to, if any.
+         */inReplyTo: InReplyToDetails?, 
+        /**
+         * Event ID of the thread root, if this is a message in a thread.
          */threadRoot: String?, 
         /**
-         * The event this message is replying to, if any.
-         */inReplyTo: InReplyToDetails?) {
+         * Details about the thread this message is the root of.
+         */threadSummary: ThreadSummary?) {
         self.kind = kind
         self.reactions = reactions
-        self.threadRoot = threadRoot
         self.inReplyTo = inReplyTo
+        self.threadRoot = threadRoot
+        self.threadSummary = threadSummary
     }
 }
 
@@ -14687,16 +14844,18 @@ public struct FfiConverterTypeMsgLikeContent: FfiConverterRustBuffer {
             try MsgLikeContent(
                 kind: FfiConverterTypeMsgLikeKind.read(from: &buf), 
                 reactions: FfiConverterSequenceTypeReaction.read(from: &buf), 
+                inReplyTo: FfiConverterOptionTypeInReplyToDetails.read(from: &buf), 
                 threadRoot: FfiConverterOptionString.read(from: &buf), 
-                inReplyTo: FfiConverterOptionTypeInReplyToDetails.read(from: &buf)
+                threadSummary: FfiConverterOptionTypeThreadSummary.read(from: &buf)
         )
     }
 
     public static func write(_ value: MsgLikeContent, into buf: inout [UInt8]) {
         FfiConverterTypeMsgLikeKind.write(value.kind, into: &buf)
         FfiConverterSequenceTypeReaction.write(value.reactions, into: &buf)
-        FfiConverterOptionString.write(value.threadRoot, into: &buf)
         FfiConverterOptionTypeInReplyToDetails.write(value.inReplyTo, into: &buf)
+        FfiConverterOptionString.write(value.threadRoot, into: &buf)
+        FfiConverterOptionTypeThreadSummary.write(value.threadSummary, into: &buf)
     }
 }
 
@@ -15081,10 +15240,6 @@ public struct OidcConfiguration {
      */
     public var policyUri: String?
     /**
-     * An array of e-mail addresses of people responsible for this client.
-     */
-    public var contacts: [String]?
-    /**
      * Pre-configured registrations for use with homeservers that don't support
      * dynamic client registration.
      *
@@ -15116,9 +15271,6 @@ public struct OidcConfiguration {
          * A URI that contains the client's privacy policy.
          */policyUri: String?, 
         /**
-         * An array of e-mail addresses of people responsible for this client.
-         */contacts: [String]?, 
-        /**
          * Pre-configured registrations for use with homeservers that don't support
          * dynamic client registration.
          *
@@ -15131,7 +15283,6 @@ public struct OidcConfiguration {
         self.logoUri = logoUri
         self.tosUri = tosUri
         self.policyUri = policyUri
-        self.contacts = contacts
         self.staticRegistrations = staticRegistrations
     }
 }
@@ -15158,9 +15309,6 @@ extension OidcConfiguration: Equatable, Hashable {
         if lhs.policyUri != rhs.policyUri {
             return false
         }
-        if lhs.contacts != rhs.contacts {
-            return false
-        }
         if lhs.staticRegistrations != rhs.staticRegistrations {
             return false
         }
@@ -15174,7 +15322,6 @@ extension OidcConfiguration: Equatable, Hashable {
         hasher.combine(logoUri)
         hasher.combine(tosUri)
         hasher.combine(policyUri)
-        hasher.combine(contacts)
         hasher.combine(staticRegistrations)
     }
 }
@@ -15190,7 +15337,6 @@ public struct FfiConverterTypeOidcConfiguration: FfiConverterRustBuffer {
                 logoUri: FfiConverterOptionString.read(from: &buf), 
                 tosUri: FfiConverterOptionString.read(from: &buf), 
                 policyUri: FfiConverterOptionString.read(from: &buf), 
-                contacts: FfiConverterOptionSequenceString.read(from: &buf), 
                 staticRegistrations: FfiConverterDictionaryStringString.read(from: &buf)
         )
     }
@@ -15202,7 +15348,6 @@ public struct FfiConverterTypeOidcConfiguration: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.logoUri, into: &buf)
         FfiConverterOptionString.write(value.tosUri, into: &buf)
         FfiConverterOptionString.write(value.policyUri, into: &buf)
-        FfiConverterOptionSequenceString.write(value.contacts, into: &buf)
         FfiConverterDictionaryStringString.write(value.staticRegistrations, into: &buf)
     }
 }
@@ -18467,9 +18612,9 @@ public func FfiConverterTypeUnstableVoiceContent_lower(_ value: UnstableVoiceCon
 
 public struct UploadParameters {
     /**
-     * Filename (previously called "url") for the media to be sent.
+     * Source from which to upload data
      */
-    public var filename: String
+    public var source: UploadSource
     /**
      * Optional non-formatted caption, for clients that support it.
      */
@@ -18497,8 +18642,8 @@ public struct UploadParameters {
     // declare one manually.
     public init(
         /**
-         * Filename (previously called "url") for the media to be sent.
-         */filename: String, 
+         * Source from which to upload data
+         */source: UploadSource, 
         /**
          * Optional non-formatted caption, for clients that support it.
          */caption: String?, 
@@ -18516,7 +18661,7 @@ public struct UploadParameters {
          *
          * Watching progress only works with the synchronous method, at the moment.
          */useSendQueue: Bool) {
-        self.filename = filename
+        self.source = source
         self.caption = caption
         self.formattedCaption = formattedCaption
         self.mentions = mentions
@@ -18529,7 +18674,7 @@ public struct UploadParameters {
 
 extension UploadParameters: Equatable, Hashable {
     public static func ==(lhs: UploadParameters, rhs: UploadParameters) -> Bool {
-        if lhs.filename != rhs.filename {
+        if lhs.source != rhs.source {
             return false
         }
         if lhs.caption != rhs.caption {
@@ -18551,7 +18696,7 @@ extension UploadParameters: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(filename)
+        hasher.combine(source)
         hasher.combine(caption)
         hasher.combine(formattedCaption)
         hasher.combine(mentions)
@@ -18565,7 +18710,7 @@ public struct FfiConverterTypeUploadParameters: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UploadParameters {
         return
             try UploadParameters(
-                filename: FfiConverterString.read(from: &buf), 
+                source: FfiConverterTypeUploadSource.read(from: &buf), 
                 caption: FfiConverterOptionString.read(from: &buf), 
                 formattedCaption: FfiConverterOptionTypeFormattedBody.read(from: &buf), 
                 mentions: FfiConverterOptionTypeMentions.read(from: &buf), 
@@ -18575,7 +18720,7 @@ public struct FfiConverterTypeUploadParameters: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: UploadParameters, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.filename, into: &buf)
+        FfiConverterTypeUploadSource.write(value.source, into: &buf)
         FfiConverterOptionString.write(value.caption, into: &buf)
         FfiConverterOptionTypeFormattedBody.write(value.formattedCaption, into: &buf)
         FfiConverterOptionTypeMentions.write(value.mentions, into: &buf)
@@ -20210,9 +20355,9 @@ public enum ClientError {
 
     
     
-    case Generic(msg: String
+    case Generic(msg: String, details: String?
     )
-    case MatrixApi(kind: ErrorKind, code: String, msg: String
+    case MatrixApi(kind: ErrorKind, code: String, msg: String, details: String?
     )
 }
 
@@ -20228,12 +20373,14 @@ public struct FfiConverterTypeClientError: FfiConverterRustBuffer {
 
         
         case 1: return .Generic(
-            msg: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf), 
+            details: try FfiConverterOptionString.read(from: &buf)
             )
         case 2: return .MatrixApi(
             kind: try FfiConverterTypeErrorKind.read(from: &buf), 
             code: try FfiConverterString.read(from: &buf), 
-            msg: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf), 
+            details: try FfiConverterOptionString.read(from: &buf)
             )
 
          default: throw UniffiInternalError.unexpectedEnumCase
@@ -20247,16 +20394,18 @@ public struct FfiConverterTypeClientError: FfiConverterRustBuffer {
 
         
         
-        case let .Generic(msg):
+        case let .Generic(msg,details):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(msg, into: &buf)
+            FfiConverterOptionString.write(details, into: &buf)
             
         
-        case let .MatrixApi(kind,code,msg):
+        case let .MatrixApi(kind,code,msg,details):
             writeInt(&buf, Int32(2))
             FfiConverterTypeErrorKind.write(kind, into: &buf)
             FfiConverterString.write(code, into: &buf)
             FfiConverterString.write(msg, into: &buf)
+            FfiConverterOptionString.write(details, into: &buf)
             
         }
     }
@@ -27477,7 +27626,8 @@ public enum StateEventContent {
     case roomServerAcl
     case roomThirdPartyInvite
     case roomTombstone
-    case roomTopic
+    case roomTopic(topic: String
+    )
     case spaceChild
     case spaceParent
     case roomAccessRule(rule: String
@@ -27529,7 +27679,8 @@ public struct FfiConverterTypeStateEventContent: FfiConverterRustBuffer {
         
         case 18: return .roomTombstone
         
-        case 19: return .roomTopic
+        case 19: return .roomTopic(topic: try FfiConverterString.read(from: &buf)
+        )
         
         case 20: return .spaceChild
         
@@ -27620,9 +27771,10 @@ public struct FfiConverterTypeStateEventContent: FfiConverterRustBuffer {
             writeInt(&buf, Int32(18))
         
         
-        case .roomTopic:
+        case let .roomTopic(topic):
             writeInt(&buf, Int32(19))
-        
+            FfiConverterString.write(topic, into: &buf)
+            
         
         case .spaceChild:
             writeInt(&buf, Int32(20))
@@ -28061,6 +28213,80 @@ extension TchapGetInstanceErrorBridged: Foundation.LocalizedError {
         String(reflecting: self)
     }
 }
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum ThreadSummaryLatestEventDetails {
+    
+    case unavailable
+    case pending
+    case ready(sender: String, senderProfile: ProfileDetails, content: TimelineItemContent
+    )
+    case error(message: String
+    )
+}
+
+
+public struct FfiConverterTypeThreadSummaryLatestEventDetails: FfiConverterRustBuffer {
+    typealias SwiftType = ThreadSummaryLatestEventDetails
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ThreadSummaryLatestEventDetails {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .unavailable
+        
+        case 2: return .pending
+        
+        case 3: return .ready(sender: try FfiConverterString.read(from: &buf), senderProfile: try FfiConverterTypeProfileDetails.read(from: &buf), content: try FfiConverterTypeTimelineItemContent.read(from: &buf)
+        )
+        
+        case 4: return .error(message: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ThreadSummaryLatestEventDetails, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .unavailable:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .pending:
+            writeInt(&buf, Int32(2))
+        
+        
+        case let .ready(sender,senderProfile,content):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(sender, into: &buf)
+            FfiConverterTypeProfileDetails.write(senderProfile, into: &buf)
+            FfiConverterTypeTimelineItemContent.write(content, into: &buf)
+            
+        
+        case let .error(message):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(message, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeThreadSummaryLatestEventDetails_lift(_ buf: RustBuffer) throws -> ThreadSummaryLatestEventDetails {
+    return try FfiConverterTypeThreadSummaryLatestEventDetails.lift(buf)
+}
+
+public func FfiConverterTypeThreadSummaryLatestEventDetails_lower(_ value: ThreadSummaryLatestEventDetails) -> RustBuffer {
+    return FfiConverterTypeThreadSummaryLatestEventDetails.lower(value)
+}
+
+
+
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -28675,6 +28901,86 @@ public func FfiConverterTypeTweak_lower(_ value: Tweak) -> RustBuffer {
 
 
 extension Tweak: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * A source for uploading a file
+ */
+
+public enum UploadSource {
+    
+    /**
+     * Upload source is a file on disk
+     */
+    case file(
+        /**
+         * Path to file
+         */filename: String
+    )
+    /**
+     * Upload source is data in memory
+     */
+    case data(
+        /**
+         * Bytes being uploaded
+         */bytes: Data, 
+        /**
+         * Filename to associate with bytes
+         */filename: String
+    )
+}
+
+
+public struct FfiConverterTypeUploadSource: FfiConverterRustBuffer {
+    typealias SwiftType = UploadSource
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UploadSource {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .file(filename: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .data(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: UploadSource, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .file(filename):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(filename, into: &buf)
+            
+        
+        case let .data(bytes,filename):
+            writeInt(&buf, Int32(2))
+            FfiConverterData.write(bytes, into: &buf)
+            FfiConverterString.write(filename, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeUploadSource_lift(_ buf: RustBuffer) throws -> UploadSource {
+    return try FfiConverterTypeUploadSource.lift(buf)
+}
+
+public func FfiConverterTypeUploadSource_lower(_ value: UploadSource) -> RustBuffer {
+    return FfiConverterTypeUploadSource.lower(value)
+}
+
+
+
+extension UploadSource: Equatable, Hashable {}
 
 
 
@@ -31753,6 +32059,27 @@ fileprivate struct FfiConverterOptionTypeTaskHandle: FfiConverterRustBuffer {
     }
 }
 
+fileprivate struct FfiConverterOptionTypeThreadSummary: FfiConverterRustBuffer {
+    typealias SwiftType = ThreadSummary?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeThreadSummary.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeThreadSummary.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionTypeTimelineEventTypeFilter: FfiConverterRustBuffer {
     typealias SwiftType = TimelineEventTypeFilter?
 
@@ -34351,6 +34678,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_ignored_users() != 49620) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_is_report_room_api_supported() != 17934) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_is_room_alias_available() != 23322) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -34679,6 +35009,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_notification() != 2524) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_room() != 26581) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_notificationsettings_can_homeserver_push_encrypted_event_to_device() != 37323) {
@@ -35240,6 +35573,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_taskhandle_is_finished() != 29008) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_threadsummary_latest_event() != 52190) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_timeline_add_listener() != 18746) {
