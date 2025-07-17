@@ -13,9 +13,9 @@ let package = Package(
         .library(name: "MatrixRustSDK", type: .dynamic, targets: ["MatrixRustSDK"]),
     ],
     targets: [
-        .binaryTarget(name: "MatrixSDKFFI", path: "MatrixSDKFFI.xcframework.zip"),
+//        .binaryTarget(name: "MatrixSDKFFI", path: "MatrixSDKFFI.xcframework.zip"),
 // Comment next line and uncomment previous line to compile against local version of `matrix-rust-sdk`.
-//        .binaryTarget(name: "MatrixSDKFFI", url: url, checksum: checksum),
+        .binaryTarget(name: "MatrixSDKFFI", url: url, checksum: checksum),
         .target(name: "MatrixRustSDK", dependencies: [.target(name: "MatrixSDKFFI")])
     ]
 )
