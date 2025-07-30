@@ -861,6 +861,21 @@ public protocol ClientProtocol : AnyObject {
     func loginWithOidcCallback(callbackUrl: String) async throws 
     
     /**
+     * Log in using the provided [`QrCodeData`]. The `Client` must be built
+     * by providing [`QrCodeData::server_name`] as the server name for this
+     * login to succeed.
+     *
+     * This method uses the login mechanism described in [MSC4108]. As such
+     * this method requires OAuth 2.0 support as well as sliding sync support.
+     *
+     * The usage of the progress_listener is required to transfer the
+     * [`CheckCode`] to the existing client.
+     *
+     * [MSC4108]: https://github.com/matrix-org/matrix-spec-proposals/pull/4108
+     */
+    func loginWithQrCode(qrCodeData: QrCodeData, oidcConfiguration: OidcConfiguration, progressListener: QrLoginProgressListener) async throws 
+    
+    /**
      * Log the current user out.
      */
     func logout() async throws 
@@ -1062,8 +1077,13 @@ public protocol ClientProtocol : AnyObject {
      * However, it should be noted that when providing a user ID as a hint
      * for MAS (with no upstream provider), then the format to use is defined
      * by [MSC4198]: https://github.com/matrix-org/matrix-spec-proposals/pull/4198
+     *
+     * * `device_id` - The unique ID that will be associated with the session.
+     * If not set, a random one will be generated. It can be an existing
+     * device ID from a previous login call. Note that this should be done
+     * only if the client also holds the corresponding encryption keys.
      */
-    func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt?, loginHint: String?) async throws  -> OAuthAuthorizationData
+    func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt?, loginHint: String?, deviceId: String?) async throws  -> OAuthAuthorizationData
     
     func userId() throws  -> String
     
@@ -2081,6 +2101,36 @@ open func loginWithOidcCallback(callbackUrl: String)async throws  {
 }
     
     /**
+     * Log in using the provided [`QrCodeData`]. The `Client` must be built
+     * by providing [`QrCodeData::server_name`] as the server name for this
+     * login to succeed.
+     *
+     * This method uses the login mechanism described in [MSC4108]. As such
+     * this method requires OAuth 2.0 support as well as sliding sync support.
+     *
+     * The usage of the progress_listener is required to transfer the
+     * [`CheckCode`] to the existing client.
+     *
+     * [MSC4108]: https://github.com/matrix-org/matrix-spec-proposals/pull/4108
+     */
+open func loginWithQrCode(qrCodeData: QrCodeData, oidcConfiguration: OidcConfiguration, progressListener: QrLoginProgressListener)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_client_login_with_qr_code(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeQrCodeData.lower(qrCodeData),FfiConverterTypeOidcConfiguration.lower(oidcConfiguration),FfiConverterCallbackInterfaceQrLoginProgressListener.lower(progressListener)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeHumanQrLoginError.lift
+        )
+}
+    
+    /**
      * Log the current user out.
      */
 open func logout()async throws  {
@@ -2695,14 +2745,19 @@ open func uploadMedia(mimeType: String, data: Data, progressWatcher: ProgressWat
      * However, it should be noted that when providing a user ID as a hint
      * for MAS (with no upstream provider), then the format to use is defined
      * by [MSC4198]: https://github.com/matrix-org/matrix-spec-proposals/pull/4198
+     *
+     * * `device_id` - The unique ID that will be associated with the session.
+     * If not set, a random one will be generated. It can be an existing
+     * device ID from a previous login call. Note that this should be done
+     * only if the client also holds the corresponding encryption keys.
      */
-open func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt?, loginHint: String?)async throws  -> OAuthAuthorizationData {
+open func urlForOidc(oidcConfiguration: OidcConfiguration, prompt: OidcPrompt?, loginHint: String?, deviceId: String?)async throws  -> OAuthAuthorizationData {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_client_url_for_oidc(
                     self.uniffiClonePointer(),
-                    FfiConverterTypeOidcConfiguration.lower(oidcConfiguration),FfiConverterOptionTypeOidcPrompt.lower(prompt),FfiConverterOptionString.lower(loginHint)
+                    FfiConverterTypeOidcConfiguration.lower(oidcConfiguration),FfiConverterOptionTypeOidcPrompt.lower(prompt),FfiConverterOptionString.lower(loginHint),FfiConverterOptionString.lower(deviceId)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_pointer,
@@ -2798,22 +2853,6 @@ public protocol ClientBuilderProtocol : AnyObject {
     func backupDownloadStrategy(backupDownloadStrategy: BackupDownloadStrategy)  -> ClientBuilder
     
     func build() async throws  -> Client
-    
-    /**
-     * Finish the building of the client and attempt to log in using the
-     * provided [`QrCodeData`].
-     *
-     * This method will build the client and immediately attempt to log the
-     * client in using the provided [`QrCodeData`] using the login
-     * mechanism described in [MSC4108]. As such this methods requires OAuth
-     * 2.0 support as well as sliding sync support.
-     *
-     * The usage of the progress_listener is required to transfer the
-     * [`CheckCode`] to the existing client.
-     *
-     * [MSC4108]: https://github.com/matrix-org/matrix-spec-proposals/pull/4108
-     */
-    func buildWithQrCode(qrCodeData: QrCodeData, oidcConfiguration: OidcConfiguration, progressListener: QrLoginProgressListener) async throws  -> Client
     
     func crossProcessStoreLocksHolderName(holderName: String)  -> ClientBuilder
     
@@ -2933,6 +2972,8 @@ public protocol ClientBuilderProtocol : AnyObject {
      */
     func systemIsMemoryConstrained()  -> ClientBuilder
     
+    func threadsEnabled(enabled: Bool)  -> ClientBuilder
+    
     func userAgent(userAgent: String)  -> ClientBuilder
     
     func username(username: String)  -> ClientBuilder
@@ -3042,37 +3083,6 @@ open func build()async throws  -> Client {
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_pointer,
             liftFunc: FfiConverterTypeClient.lift,
             errorHandler: FfiConverterTypeClientBuildError.lift
-        )
-}
-    
-    /**
-     * Finish the building of the client and attempt to log in using the
-     * provided [`QrCodeData`].
-     *
-     * This method will build the client and immediately attempt to log the
-     * client in using the provided [`QrCodeData`] using the login
-     * mechanism described in [MSC4108]. As such this methods requires OAuth
-     * 2.0 support as well as sliding sync support.
-     *
-     * The usage of the progress_listener is required to transfer the
-     * [`CheckCode`] to the existing client.
-     *
-     * [MSC4108]: https://github.com/matrix-org/matrix-spec-proposals/pull/4108
-     */
-open func buildWithQrCode(qrCodeData: QrCodeData, oidcConfiguration: OidcConfiguration, progressListener: QrLoginProgressListener)async throws  -> Client {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_clientbuilder_build_with_qr_code(
-                    self.uniffiClonePointer(),
-                    FfiConverterTypeQrCodeData.lower(qrCodeData),FfiConverterTypeOidcConfiguration.lower(oidcConfiguration),FfiConverterCallbackInterfaceQrLoginProgressListener.lower(progressListener)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_pointer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_pointer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeClient.lift,
-            errorHandler: FfiConverterTypeHumanQrLoginError.lift
         )
 }
     
@@ -3312,6 +3322,14 @@ open func slidingSyncVersionBuilder(versionBuilder: SlidingSyncVersionBuilder) -
 open func systemIsMemoryConstrained() -> ClientBuilder {
     return try!  FfiConverterTypeClientBuilder.lift(try! rustCall() {
     uniffi_matrix_sdk_ffi_fn_method_clientbuilder_system_is_memory_constrained(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func threadsEnabled(enabled: Bool) -> ClientBuilder {
+    return try!  FfiConverterTypeClientBuilder.lift(try! rustCall() {
+    uniffi_matrix_sdk_ffi_fn_method_clientbuilder_threads_enabled(self.uniffiClonePointer(),
+        FfiConverterBool.lower(enabled),$0
     )
 })
 }
@@ -4958,20 +4976,27 @@ public func FfiConverterTypeMediaSource_lower(_ value: MediaSource) -> UnsafeMut
 public protocol NotificationClientProtocol : AnyObject {
     
     /**
-     * See also documentation of
-     * `MatrixNotificationClient::get_notification`.
+     * Fetches the content of a notification.
+     *
+     * This will first try to get the notification using a short-lived sliding
+     * sync, and if the sliding-sync can't find the event, then it'll use a
+     * `/context` query to find the event with associated member information.
+     *
+     * An error result means that we couldn't resolve the notification; in that
+     * case, a dummy notification may be displayed instead.
      */
-    func getNotification(roomId: String, eventId: String) async throws  -> NotificationItem?
+    func getNotification(roomId: String, eventId: String) async throws  -> NotificationStatus
     
     /**
      * Get several notification items in a single batch.
      *
      * Returns an error if the flow failed when preparing to fetch the
      * notifications, and a [`HashMap`] containing either a
-     * [`NotificationItem`] or no entry for it if it failed to fetch a
-     * notification for the provided [`EventId`].
+     * [`BatchNotificationResult`], that indicates if the notification was
+     * successfully fetched (in which case, it's a [`NotificationStatus`]), or
+     * an error message if it couldn't be fetched.
      */
-    func getNotifications(requests: [NotificationItemsRequest]) async throws  -> [String: NotificationItem]
+    func getNotifications(requests: [NotificationItemsRequest]) async throws  -> [String: BatchNotificationResult]
     
     /**
      * Fetches a room by its ID using the in-memory state store backed client.
@@ -5025,10 +5050,16 @@ open class NotificationClient:
 
     
     /**
-     * See also documentation of
-     * `MatrixNotificationClient::get_notification`.
+     * Fetches the content of a notification.
+     *
+     * This will first try to get the notification using a short-lived sliding
+     * sync, and if the sliding-sync can't find the event, then it'll use a
+     * `/context` query to find the event with associated member information.
+     *
+     * An error result means that we couldn't resolve the notification; in that
+     * case, a dummy notification may be displayed instead.
      */
-open func getNotification(roomId: String, eventId: String)async throws  -> NotificationItem? {
+open func getNotification(roomId: String, eventId: String)async throws  -> NotificationStatus {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
@@ -5040,7 +5071,7 @@ open func getNotification(roomId: String, eventId: String)async throws  -> Notif
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeNotificationItem.lift,
+            liftFunc: FfiConverterTypeNotificationStatus.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
 }
@@ -5050,10 +5081,11 @@ open func getNotification(roomId: String, eventId: String)async throws  -> Notif
      *
      * Returns an error if the flow failed when preparing to fetch the
      * notifications, and a [`HashMap`] containing either a
-     * [`NotificationItem`] or no entry for it if it failed to fetch a
-     * notification for the provided [`EventId`].
+     * [`BatchNotificationResult`], that indicates if the notification was
+     * successfully fetched (in which case, it's a [`NotificationStatus`]), or
+     * an error message if it couldn't be fetched.
      */
-open func getNotifications(requests: [NotificationItemsRequest])async throws  -> [String: NotificationItem] {
+open func getNotifications(requests: [NotificationItemsRequest])async throws  -> [String: BatchNotificationResult] {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
@@ -5065,7 +5097,7 @@ open func getNotifications(requests: [NotificationItemsRequest])async throws  ->
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterDictionaryStringTypeNotificationItem.lift,
+            liftFunc: FfiConverterDictionaryStringTypeBatchNotificationResult.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
 }
@@ -8892,7 +8924,7 @@ public protocol RoomListServiceProtocol : AnyObject {
     
     func state(listener: RoomListServiceStateListener)  -> TaskHandle
     
-    func subscribeToRooms(roomIds: [String]) throws 
+    func subscribeToRooms(roomIds: [String]) async throws 
     
     func syncIndicator(delayBeforeShowingInMs: UInt32, delayBeforeHidingInMs: UInt32, listener: RoomListServiceSyncIndicatorListener)  -> TaskHandle
     
@@ -8972,11 +9004,21 @@ open func state(listener: RoomListServiceStateListener) -> TaskHandle {
 })
 }
     
-open func subscribeToRooms(roomIds: [String])throws  {try rustCallWithError(FfiConverterTypeRoomListError.lift) {
-    uniffi_matrix_sdk_ffi_fn_method_roomlistservice_subscribe_to_rooms(self.uniffiClonePointer(),
-        FfiConverterSequenceString.lower(roomIds),$0
-    )
-}
+open func subscribeToRooms(roomIds: [String])async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_roomlistservice_subscribe_to_rooms(
+                    self.uniffiClonePointer(),
+                    FfiConverterSequenceString.lower(roomIds)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeRoomListError.lift
+        )
 }
     
 open func syncIndicator(delayBeforeShowingInMs: UInt32, delayBeforeHidingInMs: UInt32, listener: RoomListServiceSyncIndicatorListener) -> TaskHandle {
@@ -11305,6 +11347,8 @@ public protocol SyncServiceBuilderProtocol : AnyObject {
      */
     func withOfflineMode()  -> SyncServiceBuilder
     
+    func withSharePos(enable: Bool)  -> SyncServiceBuilder
+    
 }
 
 open class SyncServiceBuilder:
@@ -11378,6 +11422,14 @@ open func withCrossProcessLock() -> SyncServiceBuilder {
 open func withOfflineMode() -> SyncServiceBuilder {
     return try!  FfiConverterTypeSyncServiceBuilder.lift(try! rustCall() {
     uniffi_matrix_sdk_ffi_fn_method_syncservicebuilder_with_offline_mode(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func withSharePos(enable: Bool) -> SyncServiceBuilder {
+    return try!  FfiConverterTypeSyncServiceBuilder.lift(try! rustCall() {
+    uniffi_matrix_sdk_ffi_fn_method_syncservicebuilder_with_share_pos(self.uniffiClonePointer(),
+        FfiConverterBool.lower(enable),$0
     )
 })
 }
@@ -21891,6 +21943,73 @@ extension BackupUploadState: Equatable, Hashable {}
 
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum BatchNotificationResult {
+    
+    /**
+     * We have more detailed information about the notification.
+     */
+    case ok(status: NotificationStatus
+    )
+    /**
+     * An error occurred while trying to fetch the notification.
+     */
+    case error(
+        /**
+         * The error message observed while handling a specific notification.
+         */message: String
+    )
+}
+
+
+public struct FfiConverterTypeBatchNotificationResult: FfiConverterRustBuffer {
+    typealias SwiftType = BatchNotificationResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BatchNotificationResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .ok(status: try FfiConverterTypeNotificationStatus.read(from: &buf)
+        )
+        
+        case 2: return .error(message: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: BatchNotificationResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .ok(status):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeNotificationStatus.write(status, into: &buf)
+            
+        
+        case let .error(message):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(message, into: &buf)
+            
+        }
+    }
+}
+
+
+public func FfiConverterTypeBatchNotificationResult_lift(_ buf: RustBuffer) throws -> BatchNotificationResult {
+    return try FfiConverterTypeBatchNotificationResult.lift(buf)
+}
+
+public func FfiConverterTypeBatchNotificationResult_lower(_ value: BatchNotificationResult) -> RustBuffer {
+    return FfiConverterTypeBatchNotificationResult.lower(value)
+}
+
+
+
+
 
 public enum ClientBuildError {
 
@@ -22451,7 +22570,7 @@ public enum EmbeddedEventDetails {
     
     case unavailable
     case pending
-    case ready(content: TimelineItemContent, sender: String, senderProfile: ProfileDetails
+    case ready(content: TimelineItemContent, sender: String, senderProfile: ProfileDetails, timestamp: Timestamp, eventOrTransactionId: EventOrTransactionId
     )
     case error(message: String
     )
@@ -22469,7 +22588,7 @@ public struct FfiConverterTypeEmbeddedEventDetails: FfiConverterRustBuffer {
         
         case 2: return .pending
         
-        case 3: return .ready(content: try FfiConverterTypeTimelineItemContent.read(from: &buf), sender: try FfiConverterString.read(from: &buf), senderProfile: try FfiConverterTypeProfileDetails.read(from: &buf)
+        case 3: return .ready(content: try FfiConverterTypeTimelineItemContent.read(from: &buf), sender: try FfiConverterString.read(from: &buf), senderProfile: try FfiConverterTypeProfileDetails.read(from: &buf), timestamp: try FfiConverterTypeTimestamp.read(from: &buf), eventOrTransactionId: try FfiConverterTypeEventOrTransactionId.read(from: &buf)
         )
         
         case 4: return .error(message: try FfiConverterString.read(from: &buf)
@@ -22491,11 +22610,13 @@ public struct FfiConverterTypeEmbeddedEventDetails: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case let .ready(content,sender,senderProfile):
+        case let .ready(content,sender,senderProfile,timestamp,eventOrTransactionId):
             writeInt(&buf, Int32(3))
             FfiConverterTypeTimelineItemContent.write(content, into: &buf)
             FfiConverterString.write(sender, into: &buf)
             FfiConverterTypeProfileDetails.write(senderProfile, into: &buf)
+            FfiConverterTypeTimestamp.write(timestamp, into: &buf)
+            FfiConverterTypeEventOrTransactionId.write(eventOrTransactionId, into: &buf)
             
         
         case let .error(message):
@@ -25914,6 +26035,79 @@ extension NotificationSettingsError: Foundation.LocalizedError {
         String(reflecting: self)
     }
 }
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum NotificationStatus {
+    
+    /**
+     * The event has been found and was not filtered out.
+     */
+    case event(item: NotificationItem
+    )
+    /**
+     * The event couldn't be found in the network queries used to find it.
+     */
+    case eventNotFound
+    /**
+     * The event has been filtered out, either because of the user's push
+     * rules, or because the user which triggered it is ignored by the
+     * current user.
+     */
+    case eventFilteredOut
+}
+
+
+public struct FfiConverterTypeNotificationStatus: FfiConverterRustBuffer {
+    typealias SwiftType = NotificationStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NotificationStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .event(item: try FfiConverterTypeNotificationItem.read(from: &buf)
+        )
+        
+        case 2: return .eventNotFound
+        
+        case 3: return .eventFilteredOut
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: NotificationStatus, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .event(item):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeNotificationItem.write(item, into: &buf)
+            
+        
+        case .eventNotFound:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .eventFilteredOut:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+public func FfiConverterTypeNotificationStatus_lift(_ buf: RustBuffer) throws -> NotificationStatus {
+    return try FfiConverterTypeNotificationStatus.lift(buf)
+}
+
+public func FfiConverterTypeNotificationStatus_lower(_ value: NotificationStatus) -> RustBuffer {
+    return FfiConverterTypeNotificationStatus.lower(value)
+}
+
+
+
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -30704,7 +30898,7 @@ public enum TimelineFocus {
     case thread(
         /**
          * The thread root event ID to focus on.
-         */rootEventId: String, numEvents: UInt16
+         */rootEventId: String
     )
     case pinnedEvents(maxEventsToLoad: UInt16, maxConcurrentRequests: UInt16
     )
@@ -30724,7 +30918,7 @@ public struct FfiConverterTypeTimelineFocus: FfiConverterRustBuffer {
         case 2: return .event(eventId: try FfiConverterString.read(from: &buf), numContextEvents: try FfiConverterUInt16.read(from: &buf), hideThreadedEvents: try FfiConverterBool.read(from: &buf)
         )
         
-        case 3: return .thread(rootEventId: try FfiConverterString.read(from: &buf), numEvents: try FfiConverterUInt16.read(from: &buf)
+        case 3: return .thread(rootEventId: try FfiConverterString.read(from: &buf)
         )
         
         case 4: return .pinnedEvents(maxEventsToLoad: try FfiConverterUInt16.read(from: &buf), maxConcurrentRequests: try FfiConverterUInt16.read(from: &buf)
@@ -30750,10 +30944,9 @@ public struct FfiConverterTypeTimelineFocus: FfiConverterRustBuffer {
             FfiConverterBool.write(hideThreadedEvents, into: &buf)
             
         
-        case let .thread(rootEventId,numEvents):
+        case let .thread(rootEventId):
             writeInt(&buf, Int32(3))
             FfiConverterString.write(rootEventId, into: &buf)
-            FfiConverterUInt16.write(numEvents, into: &buf)
             
         
         case let .pinnedEvents(maxEventsToLoad,maxConcurrentRequests):
@@ -30923,6 +31116,10 @@ public enum TraceLogPacks {
      * Enables all the logs relevant to the timeline.
      */
     case timeline
+    /**
+     * Enables all the logs relevant to the notification client.
+     */
+    case notificationClient
 }
 
 
@@ -30938,6 +31135,8 @@ public struct FfiConverterTypeTraceLogPacks: FfiConverterRustBuffer {
         case 2: return .sendQueue
         
         case 3: return .timeline
+        
+        case 4: return .notificationClient
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -30957,6 +31156,10 @@ public struct FfiConverterTypeTraceLogPacks: FfiConverterRustBuffer {
         
         case .timeline:
             writeInt(&buf, Int32(3))
+        
+        
+        case .notificationClient:
+            writeInt(&buf, Int32(4))
         
         }
     }
@@ -34788,27 +34991,6 @@ fileprivate struct FfiConverterOptionTypeMentions: FfiConverterRustBuffer {
     }
 }
 
-fileprivate struct FfiConverterOptionTypeNotificationItem: FfiConverterRustBuffer {
-    typealias SwiftType = NotificationItem?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeNotificationItem.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeNotificationItem.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
 fileprivate struct FfiConverterOptionTypeNotificationPowerLevels: FfiConverterRustBuffer {
     typealias SwiftType = NotificationPowerLevels?
 
@@ -36639,29 +36821,6 @@ fileprivate struct FfiConverterDictionaryStringTypeIgnoredUser: FfiConverterRust
     }
 }
 
-fileprivate struct FfiConverterDictionaryStringTypeNotificationItem: FfiConverterRustBuffer {
-    public static func write(_ value: [String: NotificationItem], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for (key, value) in value {
-            FfiConverterString.write(key, into: &buf)
-            FfiConverterTypeNotificationItem.write(value, into: &buf)
-        }
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: NotificationItem] {
-        let len: Int32 = try readInt(&buf)
-        var dict = [String: NotificationItem]()
-        dict.reserveCapacity(Int(len))
-        for _ in 0..<len {
-            let key = try FfiConverterString.read(from: &buf)
-            let value = try FfiConverterTypeNotificationItem.read(from: &buf)
-            dict[key] = value
-        }
-        return dict
-    }
-}
-
 fileprivate struct FfiConverterDictionaryStringTypeReceipt: FfiConverterRustBuffer {
     public static func write(_ value: [String: Receipt], into buf: inout [UInt8]) {
         let len = Int32(value.count)
@@ -36679,6 +36838,29 @@ fileprivate struct FfiConverterDictionaryStringTypeReceipt: FfiConverterRustBuff
         for _ in 0..<len {
             let key = try FfiConverterString.read(from: &buf)
             let value = try FfiConverterTypeReceipt.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
+    }
+}
+
+fileprivate struct FfiConverterDictionaryStringTypeBatchNotificationResult: FfiConverterRustBuffer {
+    public static func write(_ value: [String: BatchNotificationResult], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterTypeBatchNotificationResult.write(value, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: BatchNotificationResult] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [String: BatchNotificationResult]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0..<len {
+            let key = try FfiConverterString.read(from: &buf)
+            let value = try FfiConverterTypeBatchNotificationResult.read(from: &buf)
             dict[key] = value
         }
         return dict
@@ -37118,6 +37300,19 @@ public func parseMatrixEntityFrom(uri: String) -> MatrixEntity? {
 })
 }
 /**
+ * Updates the tracing subscriber with a new file writer based on the provided
+ * configuration.
+ *
+ * This method will throw if `init_platform` hasn't been called, or if it was
+ * called with `write_to_files` set to `None`.
+ */
+public func reloadTracingFileWriter(configuration: TracingFileConfiguration)throws  {try rustCallWithError(FfiConverterTypeClientError.lift) {
+    uniffi_matrix_sdk_ffi_fn_func_reload_tracing_file_writer(
+        FfiConverterTypeTracingFileConfiguration.lower(configuration),$0
+    )
+}
+}
+/**
  * Transforms a Room's display name into a valid room alias name.
  */
 public func roomAliasNameFromRoomDisplayName(roomName: String) -> String {
@@ -37250,6 +37445,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_func_parse_matrix_entity_from() != 49710) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_func_reload_tracing_file_writer() != 1447) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_func_room_alias_name_from_room_display_name() != 65010) {
@@ -37417,6 +37615,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_login_with_oidc_callback() != 32591) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_login_with_qr_code() != 3481) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_logout() != 42911) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -37522,7 +37723,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_upload_media() != 51195) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_url_for_oidc() != 28386) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_url_for_oidc() != 34524) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_user_id() != 40531) {
@@ -37544,9 +37745,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_build() != 56018) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_build_with_qr_code() != 42452) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_cross_process_store_locks_holder_name() != 46627) {
@@ -37610,6 +37808,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_system_is_memory_constrained() != 6898) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_threads_enabled() != 33768) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_user_agent() != 13719) {
@@ -37744,10 +37945,10 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_mediasource_url() != 62692) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_notification() != 2524) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_notification() != 52873) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_notifications() != 30600) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_notifications() != 64372) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_notificationclient_get_room() != 26581) {
@@ -38149,7 +38350,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_roomlistservice_state() != 64650) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistservice_subscribe_to_rooms() != 59765) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_roomlistservice_subscribe_to_rooms() != 5528) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_roomlistservice_sync_indicator() != 16821) {
@@ -38321,6 +38522,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_syncservicebuilder_with_offline_mode() != 16958) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_syncservicebuilder_with_share_pos() != 18892) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_taskhandle_cancel() != 9124) {

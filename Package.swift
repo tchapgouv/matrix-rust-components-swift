@@ -1,8 +1,8 @@
 // swift-tools-version:5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 import PackageDescription
-let checksum = "2cf85421c62fb73ffd34745abe10dd7cdafab41bc9c395528143e9805f5a81bf"
-let version = "aaa"
+let checksum = "b35cc6947f5a6c1137254e036160ee8584745cf57747ec1c13f3be026775b955"
+let version = "25.07.15-bwi-0-8-1"
 let url = "https://github.com/tchapgouv/matrix-rust-components-swift/releases/download/\(version)/MatrixSDKFFI.xcframework.zip"
 let package = Package(
     name: "MatrixRustSDK",
@@ -13,9 +13,9 @@ let package = Package(
         .library(name: "MatrixRustSDK", type: .dynamic, targets: ["MatrixRustSDK"]),
     ],
     targets: [
-        .binaryTarget(name: "MatrixSDKFFI", path: "MatrixSDKFFI.xcframework.zip"),
+//        .binaryTarget(name: "MatrixSDKFFI", path: "MatrixSDKFFI.xcframework.zip"),
 // Comment next line and uncomment previous line to compile against local version of `matrix-rust-sdk`.
-//        .binaryTarget(name: "MatrixSDKFFI", url: url, checksum: checksum),
+        .binaryTarget(name: "MatrixSDKFFI", url: url, checksum: checksum),
         .target(name: "MatrixRustSDK", dependencies: [.target(name: "MatrixSDKFFI")])
     ]
 )
