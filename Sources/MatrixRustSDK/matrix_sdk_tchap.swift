@@ -505,7 +505,11 @@ open class TchapGetInstance: TchapGetInstanceProtocol, @unchecked Sendable {
     // No primary constructor declared for this class.
 
     deinit {
-        guard handle != 0 else { return }
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
         try! rustCall { uniffi_matrix_sdk_tchap_fn_free_tchapgetinstance(handle, $0) }
     }
 
@@ -572,6 +576,8 @@ public struct TchapGetInstanceConfig: Equatable, Hashable {
     }
 
     
+
+    
 }
 
 #if compiler(>=6)
@@ -622,6 +628,8 @@ public struct TchapGetInstanceResult: Equatable, Hashable {
     }
 
     
+
+    
 }
 
 #if compiler(>=6)
@@ -669,6 +677,8 @@ public enum TchapGetInstanceError: Swift.Error, Equatable, Hashable, Foundation.
     case BadUrl(message: String)
     
     case InvalidResult(message: String)
+    
+
     
 
     

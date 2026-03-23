@@ -572,7 +572,11 @@ open class OAuthAuthorizationData: OAuthAuthorizationDataProtocol, @unchecked Se
     // No primary constructor declared for this class.
 
     deinit {
-        guard handle != 0 else { return }
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
         try! rustCall { uniffi_matrix_sdk_fn_free_oauthauthorizationdata(handle, $0) }
     }
 
@@ -739,6 +743,8 @@ public struct RoomPowerLevelChanges: Equatable, Hashable {
     }
 
     
+
+    
 }
 
 #if compiler(>=6)
@@ -822,6 +828,8 @@ public struct ServerVendorInfo: Equatable, Hashable {
         self.serverName = serverName
         self.version = version
     }
+
+    
 
     
 }
@@ -995,6 +1003,8 @@ public struct VirtualElementCallWidgetConfig: Equatable, Hashable {
         self.controlledAudioDevices = controlledAudioDevices
         self.sendNotificationType = sendNotificationType
     }
+
+    
 
     
 }
@@ -1210,6 +1220,8 @@ public struct VirtualElementCallWidgetProperties: Equatable, Hashable {
     }
 
     
+
+    
 }
 
 #if compiler(>=6)
@@ -1292,6 +1304,8 @@ public enum AccessRule: Equatable, Hashable {
      * They can be allowed (invited) or denied (kicked/banned) access.
      */
     case unrestricted
+
+
 
 
 
@@ -1391,6 +1405,8 @@ public enum BackupDownloadStrategy: Equatable, Hashable {
 
 
 
+
+
 }
 
 #if compiler(>=6)
@@ -1484,6 +1500,8 @@ public enum EncryptionSystem: Equatable, Hashable {
 
 
 
+
+
 }
 
 #if compiler(>=6)
@@ -1567,6 +1585,8 @@ public enum HeaderStyle: Equatable, Hashable {
      * No Header (useful for webapps).
      */
     case none
+
+
 
 
 
@@ -1658,6 +1678,17 @@ public enum Intent: Equatable, Hashable {
      * The user wants to start a call in a "Direct Message" (DM) room.
      */
     case startCallDm
+    /**
+     * The user wants to start a voice call in a "Direct Message" (DM) room.
+     */
+    case startCallDmVoice
+    /**
+     * The user wants to join an existing  voice call that is a "Direct
+     * Message" (DM) room.
+     */
+    case joinExistingDmVoice
+
+
 
 
 
@@ -1685,6 +1716,10 @@ public struct FfiConverterTypeIntent: FfiConverterRustBuffer {
         
         case 4: return .startCallDm
         
+        case 5: return .startCallDmVoice
+        
+        case 6: return .joinExistingDmVoice
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -1707,6 +1742,14 @@ public struct FfiConverterTypeIntent: FfiConverterRustBuffer {
         
         case .startCallDm:
             writeInt(&buf, Int32(4))
+        
+        
+        case .startCallDmVoice:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .joinExistingDmVoice:
+            writeInt(&buf, Int32(6))
         
         }
     }
@@ -1744,6 +1787,8 @@ public enum NotificationType: Equatable, Hashable {
      * The receiving client should ring with an audible sound.
      */
     case ring
+
+
 
 
 
@@ -1827,6 +1872,8 @@ public enum PaginatorState: Equatable, Hashable {
      * The paginator is… paginating one direction or another.
      */
     case paginating
+
+
 
 
 
@@ -1966,6 +2013,8 @@ public enum QrCodeLoginError: Swift.Error, Equatable, Hashable, Foundation.Local
      * reset the server URL.
      */
     case ServerReset(message: String)
+    
+
     
 
     
@@ -2128,6 +2177,8 @@ public enum RoomMemberRole: Equatable, Hashable {
 
 
 
+
+
 }
 
 #if compiler(>=6)
@@ -2216,6 +2267,8 @@ public enum RoomPaginationStatus: Equatable, Hashable {
      * Back-pagination is already running in the background.
      */
     case paginating
+
+
 
 
 
@@ -2459,7 +2512,7 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_matrix_sdk_checksum_method_oauthauthorizationdata_login_url() != 25566) {
+    if (uniffi_matrix_sdk_checksum_method_oauthauthorizationdata_login_url() != 47865) {
         return InitializationResult.apiChecksumMismatch
     }
 
