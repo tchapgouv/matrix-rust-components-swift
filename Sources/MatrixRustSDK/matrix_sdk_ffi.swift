@@ -3494,8 +3494,6 @@ public protocol ClientBuilderProtocol: AnyObject, Sendable {
     
     func disableSslVerification()  -> ClientBuilder
     
-    func enableOidcRefreshLock()  -> ClientBuilder
-    
     /**
      * Set whether to enable the experimental support for sending and receiving
      * encrypted room history on invite, per [MSC4268].
@@ -3736,14 +3734,6 @@ open func disableBuiltInRootCertificates() -> ClientBuilder  {
 open func disableSslVerification() -> ClientBuilder  {
     return try!  FfiConverterTypeClientBuilder_lift(try! rustCall() {
     uniffi_matrix_sdk_ffi_fn_method_clientbuilder_disable_ssl_verification(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-    
-open func enableOidcRefreshLock() -> ClientBuilder  {
-    return try!  FfiConverterTypeClientBuilder_lift(try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_method_clientbuilder_enable_oidc_refresh_lock(
             self.uniffiCloneHandle(),$0
     )
 })
@@ -4031,7 +4021,23 @@ public protocol EncryptionProtocol: AnyObject, Sendable {
     
     func isLastDevice() async throws  -> Bool
     
+    /**
+     * Download identity and key backup information from Recovery
+     */
     func recover(recoveryKey: String) async throws 
+    
+    /**
+     * Download identity and key backup information from Recovery, and, if the
+     * key backup information is inconsistent, create a new key backup.
+     *
+     * This will create a new key backup if:
+     *
+     * * Key backup is enabled and the backup decryption key is missing from
+     * Recovery, or
+     * * Key backup is enabled and the backup decryption key does not match the
+     * public key
+     */
+    func recoverAndFixBackup(recoveryKey: String) async throws 
     
     func recoverAndReset(oldRecoveryKey: String) async throws  -> String
     
@@ -4316,11 +4322,42 @@ open func isLastDevice()async throws  -> Bool  {
         )
 }
     
+    /**
+     * Download identity and key backup information from Recovery
+     */
 open func recover(recoveryKey: String)async throws   {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_encryption_recover(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(recoveryKey)
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeRecoveryError_lift
+        )
+}
+    
+    /**
+     * Download identity and key backup information from Recovery, and, if the
+     * key backup information is inconsistent, create a new key backup.
+     *
+     * This will create a new key backup if:
+     *
+     * * Key backup is enabled and the backup decryption key is missing from
+     * Recovery, or
+     * * Key backup is enabled and the backup decryption key does not match the
+     * public key
+     */
+open func recoverAndFixBackup(recoveryKey: String)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_encryption_recover_and_fix_backup(
                     self.uniffiCloneHandle(),
                     FfiConverterString.lower(recoveryKey)
                 )
@@ -7568,10 +7605,6 @@ public protocol RoomProtocol: AnyObject, Sendable {
      */
     func forget() async throws 
     
-    func getAccessRule() async throws  -> AccessRule
-    
-    func getIsEncrypted() async  -> Bool
-    
     func getPowerLevels() async throws  -> RoomPowerLevels
     
     /**
@@ -7581,8 +7614,6 @@ public protocol RoomProtocol: AnyObject, Sendable {
      * directory and can be found using it.
      */
     func getRoomVisibility() async throws  -> RoomVisibility
-    
-    func getVisibility() async  -> RoomVisibility
     
     /**
      * Is there a non expired membership with application "m.call" and scope
@@ -7832,7 +7863,7 @@ public protocol RoomProtocol: AnyObject, Sendable {
      * * `score` - The score to rate this content as where -100 is most
      * offensive and 0 is inoffensive (optional).
      */
-    func reportContent(eventId: String, score: Int32?, reason: String?) async throws 
+    func reportContent(eventId: String, reason: String?) async throws 
     
     /**
      * Reports a room as inappropriate to the server.
@@ -8413,41 +8444,6 @@ open func forget()async throws   {
         )
 }
     
-open func getAccessRule()async throws  -> AccessRule  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_room_get_access_rule(
-                    self.uniffiCloneHandle()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeAccessRule_lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-    
-open func getIsEncrypted()async  -> Bool  {
-    return
-        try!  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_room_get_is_encrypted(
-                    self.uniffiCloneHandle()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_i8,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_i8,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_i8,
-            liftFunc: FfiConverterBool.lift,
-            errorHandler: nil
-            
-        )
-}
-    
 open func getPowerLevels()async throws  -> RoomPowerLevels  {
     return
         try  await uniffiRustCallAsync(
@@ -8485,24 +8481,6 @@ open func getRoomVisibility()async throws  -> RoomVisibility  {
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
             liftFunc: FfiConverterTypeRoomVisibility_lift,
             errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-    
-open func getVisibility()async  -> RoomVisibility  {
-    return
-        try!  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_room_get_visibility(
-                    self.uniffiCloneHandle()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeRoomVisibility_lift,
-            errorHandler: nil
-            
         )
 }
     
@@ -9294,13 +9272,13 @@ open func removeRoomAliasFromRoomDirectory(alias: String)async throws  -> Bool  
      * * `score` - The score to rate this content as where -100 is most
      * offensive and 0 is inoffensive (optional).
      */
-open func reportContent(eventId: String, score: Int32?, reason: String?)async throws   {
+open func reportContent(eventId: String, reason: String?)async throws   {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_room_report_content(
                     self.uniffiCloneHandle(),
-                    FfiConverterString.lower(eventId),FfiConverterOptionInt32.lower(score),FfiConverterOptionString.lower(reason)
+                    FfiConverterString.lower(eventId),FfiConverterOptionString.lower(reason)
                 )
             },
             pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
@@ -17454,6 +17432,87 @@ public func FfiConverterTypeAuthDataPasswordDetails_lower(_ value: AuthDataPassw
 }
 
 
+/**
+ * FFI representation of a single location update from a beacon event.
+ */
+public struct BeaconInfo: Equatable, Hashable {
+    /**
+     * The geo URI carrying the user's coordinates
+     * (e.g. `"geo:51.5008,0.1247;u=35"`).
+     */
+    public var geoUri: String
+    /**
+     * Timestamp (ms since Unix Epoch) of this location update.
+     */
+    public var ts: Timestamp
+    /**
+     * An optional human-readable description of the location.
+     */
+    public var description: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The geo URI carrying the user's coordinates
+         * (e.g. `"geo:51.5008,0.1247;u=35"`).
+         */geoUri: String, 
+        /**
+         * Timestamp (ms since Unix Epoch) of this location update.
+         */ts: Timestamp, 
+        /**
+         * An optional human-readable description of the location.
+         */description: String?) {
+        self.geoUri = geoUri
+        self.ts = ts
+        self.description = description
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension BeaconInfo: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeBeaconInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BeaconInfo {
+        return
+            try BeaconInfo(
+                geoUri: FfiConverterString.read(from: &buf), 
+                ts: FfiConverterTypeTimestamp.read(from: &buf), 
+                description: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: BeaconInfo, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.geoUri, into: &buf)
+        FfiConverterTypeTimestamp.write(value.ts, into: &buf)
+        FfiConverterOptionString.write(value.description, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBeaconInfo_lift(_ buf: RustBuffer) throws -> BeaconInfo {
+    return try FfiConverterTypeBeaconInfo.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBeaconInfo_lower(_ value: BeaconInfo) -> RustBuffer {
+    return FfiConverterTypeBeaconInfo.lower(value)
+}
+
+
 public struct ClientProperties: Equatable, Hashable {
     /**
      * The client_id provides the widget with the option to behave differently
@@ -19177,6 +19236,110 @@ public func FfiConverterTypeListThreadsOptions_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeListThreadsOptions_lower(_ value: ListThreadsOptions) -> RustBuffer {
     return FfiConverterTypeListThreadsOptions.lower(value)
+}
+
+
+/**
+ * FFI representation of a live location sharing session (MSC3489).
+ *
+ * Corresponds to a `org.matrix.msc3672.beacon_info` state event in the
+ * timeline. Location updates are aggregated here as they arrive.
+ */
+public struct LiveLocationContent: Equatable, Hashable {
+    /**
+     * Whether this sharing session is currently active.
+     */
+    public var isLive: Bool
+    /**
+     * An optional human-readable label for this sharing session.
+     */
+    public var description: String?
+    /**
+     * Duration of the session in milliseconds.
+     */
+    public var timeoutMs: UInt64
+    /**
+     * The asset type of the beacon (e.g. `Sender` for the user's own
+     * location, `Pin` for a fixed point of interest).
+     */
+    public var assetType: AssetType
+    /**
+     * All location updates received so far, sorted oldest-first.
+     */
+    public var locations: [BeaconInfo]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Whether this sharing session is currently active.
+         */isLive: Bool, 
+        /**
+         * An optional human-readable label for this sharing session.
+         */description: String?, 
+        /**
+         * Duration of the session in milliseconds.
+         */timeoutMs: UInt64, 
+        /**
+         * The asset type of the beacon (e.g. `Sender` for the user's own
+         * location, `Pin` for a fixed point of interest).
+         */assetType: AssetType, 
+        /**
+         * All location updates received so far, sorted oldest-first.
+         */locations: [BeaconInfo]) {
+        self.isLive = isLive
+        self.description = description
+        self.timeoutMs = timeoutMs
+        self.assetType = assetType
+        self.locations = locations
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension LiveLocationContent: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLiveLocationContent: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LiveLocationContent {
+        return
+            try LiveLocationContent(
+                isLive: FfiConverterBool.read(from: &buf), 
+                description: FfiConverterOptionString.read(from: &buf), 
+                timeoutMs: FfiConverterUInt64.read(from: &buf), 
+                assetType: FfiConverterTypeAssetType.read(from: &buf), 
+                locations: FfiConverterSequenceTypeBeaconInfo.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LiveLocationContent, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.isLive, into: &buf)
+        FfiConverterOptionString.write(value.description, into: &buf)
+        FfiConverterUInt64.write(value.timeoutMs, into: &buf)
+        FfiConverterTypeAssetType.write(value.assetType, into: &buf)
+        FfiConverterSequenceTypeBeaconInfo.write(value.locations, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLiveLocationContent_lift(_ buf: RustBuffer) throws -> LiveLocationContent {
+    return try FfiConverterTypeLiveLocationContent.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLiveLocationContent_lower(_ value: LiveLocationContent) -> RustBuffer {
+    return FfiConverterTypeLiveLocationContent.lower(value)
 }
 
 
@@ -25330,10 +25493,10 @@ public func FfiConverterTypeAccountDataEventType_lower(_ value: AccountDataEvent
 public enum AccountManagementAction: Equatable, Hashable {
     
     case profile
-    case sessionsList
-    case sessionView(deviceId: String
+    case devicesList
+    case deviceView(deviceId: String
     )
-    case sessionEnd(deviceId: String
+    case deviceDelete(deviceId: String
     )
     case accountDeactivate
     case crossSigningReset
@@ -25360,12 +25523,12 @@ public struct FfiConverterTypeAccountManagementAction: FfiConverterRustBuffer {
         
         case 1: return .profile
         
-        case 2: return .sessionsList
+        case 2: return .devicesList
         
-        case 3: return .sessionView(deviceId: try FfiConverterString.read(from: &buf)
+        case 3: return .deviceView(deviceId: try FfiConverterString.read(from: &buf)
         )
         
-        case 4: return .sessionEnd(deviceId: try FfiConverterString.read(from: &buf)
+        case 4: return .deviceDelete(deviceId: try FfiConverterString.read(from: &buf)
         )
         
         case 5: return .accountDeactivate
@@ -25384,16 +25547,16 @@ public struct FfiConverterTypeAccountManagementAction: FfiConverterRustBuffer {
             writeInt(&buf, Int32(1))
         
         
-        case .sessionsList:
+        case .devicesList:
             writeInt(&buf, Int32(2))
         
         
-        case let .sessionView(deviceId):
+        case let .deviceView(deviceId):
             writeInt(&buf, Int32(3))
             FfiConverterString.write(deviceId, into: &buf)
             
         
-        case let .sessionEnd(deviceId):
+        case let .deviceDelete(deviceId):
             writeInt(&buf, Int32(4))
             FfiConverterString.write(deviceId, into: &buf)
             
@@ -25595,6 +25758,7 @@ public enum AssetType: Equatable, Hashable {
     
     case sender
     case pin
+    case unknown
 
 
 
@@ -25620,6 +25784,8 @@ public struct FfiConverterTypeAssetType: FfiConverterRustBuffer {
         
         case 2: return .pin
         
+        case 3: return .unknown
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -25634,6 +25800,10 @@ public struct FfiConverterTypeAssetType: FfiConverterRustBuffer {
         
         case .pin:
             writeInt(&buf, Int32(2))
+        
+        
+        case .unknown:
+            writeInt(&buf, Int32(3))
         
         }
     }
@@ -27635,7 +27805,7 @@ public enum ErrorKind: Equatable, Hashable {
     case wrongRoomKeysVersion(
         /**
          * The currently active backup version.
-         */currentVersion: String?
+         */currentVersion: String
     )
     /**
      * A custom API error.
@@ -27760,7 +27930,7 @@ public struct FfiConverterTypeErrorKind: FfiConverterRustBuffer {
         
         case 46: return .weakPassword
         
-        case 47: return .wrongRoomKeysVersion(currentVersion: try FfiConverterOptionString.read(from: &buf)
+        case 47: return .wrongRoomKeysVersion(currentVersion: try FfiConverterString.read(from: &buf)
         )
         
         case 48: return .custom(errcode: try FfiConverterString.read(from: &buf)
@@ -27966,7 +28136,7 @@ public struct FfiConverterTypeErrorKind: FfiConverterRustBuffer {
         
         case let .wrongRoomKeysVersion(currentVersion):
             writeInt(&buf, Int32(47))
-            FfiConverterOptionString.write(currentVersion, into: &buf)
+            FfiConverterString.write(currentVersion, into: &buf)
             
         
         case let .custom(errcode):
@@ -29194,14 +29364,35 @@ public enum HumanQrGrantLoginError: Swift.Error, Equatable, Hashable, Foundation
     case NotFound(message: String)
     
     /**
-     * The device could not be created.
-     */
-    case UnableToCreateDevice(message: String)
-    
-    /**
      * An unknown error has happened.
      */
     case Unknown(message: String)
+    
+    /**
+     * The requested device was not returned by the homeserver.
+     */
+    case DeviceNotFound(message: String)
+    
+    /**
+     * The other device is already signed in and so does not need to sign in.
+     */
+    case OtherDeviceAlreadySignedIn(message: String)
+    
+    /**
+     * The sign in was cancelled.
+     */
+    case Cancelled(message: String)
+    
+    /**
+     * The sign in was not completed in the required time.
+     */
+    case Expired(message: String)
+    
+    /**
+     * A secure connection could not have been established between the two
+     * devices.
+     */
+    case ConnectionInsecure(message: String)
     
 
     
@@ -29252,11 +29443,27 @@ public struct FfiConverterTypeHumanQrGrantLoginError: FfiConverterRustBuffer {
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 6: return .UnableToCreateDevice(
+        case 6: return .Unknown(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 7: return .Unknown(
+        case 7: return .DeviceNotFound(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 8: return .OtherDeviceAlreadySignedIn(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 9: return .Cancelled(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 10: return .Expired(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 11: return .ConnectionInsecure(
             message: try FfiConverterString.read(from: &buf)
         )
         
@@ -29281,10 +29488,18 @@ public struct FfiConverterTypeHumanQrGrantLoginError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(4))
         case .NotFound(_ /* message is ignored*/):
             writeInt(&buf, Int32(5))
-        case .UnableToCreateDevice(_ /* message is ignored*/):
-            writeInt(&buf, Int32(6))
         case .Unknown(_ /* message is ignored*/):
+            writeInt(&buf, Int32(6))
+        case .DeviceNotFound(_ /* message is ignored*/):
             writeInt(&buf, Int32(7))
+        case .OtherDeviceAlreadySignedIn(_ /* message is ignored*/):
+            writeInt(&buf, Int32(8))
+        case .Cancelled(_ /* message is ignored*/):
+            writeInt(&buf, Int32(9))
+        case .Expired(_ /* message is ignored*/):
+            writeInt(&buf, Int32(10))
+        case .ConnectionInsecure(_ /* message is ignored*/):
+            writeInt(&buf, Int32(11))
 
         
         }
@@ -30839,7 +31054,10 @@ public enum MessageLikeEventContent {
     case rtcNotification(notificationType: RtcNotificationType, 
         /**
          * The timestamp at which this notification is considered invalid.
-         */expirationTs: Timestamp
+         */expirationTs: Timestamp, 
+        /**
+         * Soft indication of whether it is an audio or video call.
+         */callIntent: RtcCallIntent?
     )
     case callHangup
     case callCandidates
@@ -30885,7 +31103,7 @@ public struct FfiConverterTypeMessageLikeEventContent: FfiConverterRustBuffer {
         
         case 2: return .callInvite
         
-        case 3: return .rtcNotification(notificationType: try FfiConverterTypeRtcNotificationType.read(from: &buf), expirationTs: try FfiConverterTypeTimestamp.read(from: &buf)
+        case 3: return .rtcNotification(notificationType: try FfiConverterTypeRtcNotificationType.read(from: &buf), expirationTs: try FfiConverterTypeTimestamp.read(from: &buf), callIntent: try FfiConverterOptionTypeRtcCallIntent.read(from: &buf)
         )
         
         case 4: return .callHangup
@@ -30938,10 +31156,11 @@ public struct FfiConverterTypeMessageLikeEventContent: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case let .rtcNotification(notificationType,expirationTs):
+        case let .rtcNotification(notificationType,expirationTs,callIntent):
             writeInt(&buf, Int32(3))
             FfiConverterTypeRtcNotificationType.write(notificationType, into: &buf)
             FfiConverterTypeTimestamp.write(expirationTs, into: &buf)
+            FfiConverterOptionTypeRtcCallIntent.write(callIntent, into: &buf)
             
         
         case .callHangup:
@@ -31967,6 +32186,10 @@ public enum NotificationStatus {
      * current user.
      */
     case eventFilteredOut
+    /**
+     * The event has been redacted.
+     */
+    case eventRedacted
 
 
 
@@ -31995,6 +32218,8 @@ public struct FfiConverterTypeNotificationStatus: FfiConverterRustBuffer {
         
         case 3: return .eventFilteredOut
         
+        case 4: return .eventRedacted
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -32014,6 +32239,10 @@ public struct FfiConverterTypeNotificationStatus: FfiConverterRustBuffer {
         
         case .eventFilteredOut:
             writeInt(&buf, Int32(3))
+        
+        
+        case .eventRedacted:
+            writeInt(&buf, Int32(4))
         
         }
     }
@@ -36126,6 +36355,73 @@ public func FfiConverterTypeRoomVisibility_lower(_ value: RoomVisibility) -> Rus
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum RtcCallIntent: Equatable, Hashable {
+    
+    case video
+    case audio
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension RtcCallIntent: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRtcCallIntent: FfiConverterRustBuffer {
+    typealias SwiftType = RtcCallIntent
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RtcCallIntent {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .video
+        
+        case 2: return .audio
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RtcCallIntent, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .video:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .audio:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRtcCallIntent_lift(_ buf: RustBuffer) throws -> RtcCallIntent {
+    return try FfiConverterTypeRtcCallIntent.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRtcCallIntent_lower(_ value: RtcCallIntent) -> RustBuffer {
+    return FfiConverterTypeRtcCallIntent.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum RtcNotificationType: Equatable, Hashable {
     
     case ring
@@ -38451,6 +38747,14 @@ public enum TimelineItemContent {
     )
     case failedToParseState(eventType: String, stateKey: String, error: String
     )
+    /**
+     * A live location sharing session (MSC3489).
+     *
+     * Represents a `org.matrix.msc3672.beacon_info` state event with all
+     * aggregated location updates from `org.matrix.msc3672.beacon` events.
+     */
+    case liveLocation(content: LiveLocationContent
+    )
 
 
 
@@ -38492,6 +38796,9 @@ public struct FfiConverterTypeTimelineItemContent: FfiConverterRustBuffer {
         )
         
         case 8: return .failedToParseState(eventType: try FfiConverterString.read(from: &buf), stateKey: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 9: return .liveLocation(content: try FfiConverterTypeLiveLocationContent.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -38548,6 +38855,11 @@ public struct FfiConverterTypeTimelineItemContent: FfiConverterRustBuffer {
             FfiConverterString.write(eventType, into: &buf)
             FfiConverterString.write(stateKey, into: &buf)
             FfiConverterString.write(error, into: &buf)
+            
+        
+        case let .liveLocation(content):
+            writeInt(&buf, Int32(9))
+            FfiConverterTypeLiveLocationContent.write(content, into: &buf)
             
         }
     }
@@ -41387,7 +41699,7 @@ public func FfiConverterCallbackInterfaceNotificationSettingsDelegate_lower(_ v:
 
 public protocol PaginationStatusListener: AnyObject, Sendable {
     
-    func onUpdate(status: RoomPaginationStatus) 
+    func onUpdate(status: PaginationStatus) 
     
 }
 
@@ -41427,7 +41739,7 @@ fileprivate struct UniffiCallbackInterfacePaginationStatusListener {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
                 return uniffiObj.onUpdate(
-                     status: try FfiConverterTypeRoomPaginationStatus_lift(status)
+                     status: try FfiConverterTypePaginationStatus_lift(status)
                 )
             }
 
@@ -46482,6 +46794,30 @@ fileprivate struct FfiConverterOptionTypeRoomVisibility: FfiConverterRustBuffer 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeRtcCallIntent: FfiConverterRustBuffer {
+    typealias SwiftType = RtcCallIntent?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeRtcCallIntent.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeRtcCallIntent.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeUploadSource: FfiConverterRustBuffer {
     typealias SwiftType = UploadSource?
 
@@ -47009,6 +47345,31 @@ fileprivate struct FfiConverterSequenceTypeTimelineItem: FfiConverterRustBuffer 
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeTimelineItem.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeBeaconInfo: FfiConverterRustBuffer {
+    typealias SwiftType = [BeaconInfo]
+
+    public static func write(_ value: [BeaconInfo], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeBeaconInfo.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [BeaconInfo] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [BeaconInfo]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeBeaconInfo.read(from: &buf))
         }
         return seq
     }
@@ -49131,9 +49492,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_disable_ssl_verification() != 17095) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_enable_oidc_refresh_lock() != 54805) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_method_clientbuilder_enable_share_history_on_invite() != 47743) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -49212,7 +49570,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_encryption_is_last_device() != 54322) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_encryption_recover() != 14635) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_encryption_recover() != 39016) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_matrix_sdk_ffi_checksum_method_encryption_recover_and_fix_backup() != 59505) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_encryption_recover_and_reset() != 48062) {
@@ -49458,19 +49819,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_forget() != 10622) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_access_rule() != 31153) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_is_encrypted() != 22920) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_get_power_levels() != 33125) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_get_room_visibility() != 49289) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_get_visibility() != 42818) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_has_active_room_call() != 1287) {
@@ -49602,7 +49954,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_room_remove_room_alias_from_room_directory() != 26389) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_room_report_content() != 27264) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_room_report_content() != 37734) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_room_report_room() != 372) {
@@ -50355,7 +50707,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_syncservicestateobserver_on_update() != 7272) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_paginationstatuslistener_on_update() != 53207) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_paginationstatuslistener_on_update() != 17449) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_timelinelistener_on_update() != 35518) {
