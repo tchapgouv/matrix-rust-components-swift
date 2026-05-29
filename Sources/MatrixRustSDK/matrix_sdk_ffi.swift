@@ -831,6 +831,8 @@ public protocol ClientProtocol: AnyObject, Sendable {
      */
     func accountData(eventType: String) async throws  -> String?
     
+    func accountExpiredSendEmail() async throws 
+    
     func accountUrl(action: AccountManagementAction?) async throws  -> String?
     
     /**
@@ -1523,6 +1525,23 @@ open func accountData(eventType: String)async throws  -> String?  {
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
             liftFunc: FfiConverterOptionString.lift,
+            errorHandler: FfiConverterTypeClientError_lift
+        )
+}
+    
+open func accountExpiredSendEmail()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_matrix_sdk_ffi_fn_method_client_account_expired_send_email(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_void,
+            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
+            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
+            liftFunc: { $0 },
             errorHandler: FfiConverterTypeClientError_lift
         )
 }
@@ -14253,7 +14272,7 @@ public protocol SyncServiceProtocol: AnyObject, Sendable {
     
     func roomListService()  -> RoomListService
     
-    func start() async 
+    func start() async throws 
     
     func state(listener: SyncServiceStateObserver)  -> TaskHandle
     
@@ -14346,9 +14365,9 @@ open func roomListService() -> RoomListService  {
 })
 }
     
-open func start()async   {
+open func start()async throws   {
     return
-        try!  await uniffiRustCallAsync(
+        try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_matrix_sdk_ffi_fn_method_syncservice_start(
                     self.uniffiCloneHandle()
@@ -14359,8 +14378,7 @@ open func start()async   {
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_void,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_void,
             liftFunc: { $0 },
-            errorHandler: nil
-            
+            errorHandler: FfiConverterTypeClientError_lift
         )
 }
     
@@ -17799,7 +17817,6 @@ public struct CreateRoomParameters: Equatable, Hashable {
     public var isEncrypted: Bool
     public var isDirect: Bool
     public var visibility: RoomVisibility
-    public var accessRuleOverride: AccessRule?
     public var isRoomFederated: Bool?
     public var preset: RoomPreset
     public var invite: [String]?
@@ -17812,13 +17829,12 @@ public struct CreateRoomParameters: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, accessRuleOverride: AccessRule? = nil, isRoomFederated: Bool? = nil, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, historyVisibilityOverride: RoomHistoryVisibility? = nil, canonicalAlias: String? = nil, isSpace: Bool = false) {
+    public init(name: String?, topic: String? = nil, isEncrypted: Bool, isDirect: Bool = false, visibility: RoomVisibility, isRoomFederated: Bool? = nil, preset: RoomPreset, invite: [String]? = nil, avatar: String? = nil, powerLevelContentOverride: PowerLevels? = nil, joinRuleOverride: JoinRule? = nil, historyVisibilityOverride: RoomHistoryVisibility? = nil, canonicalAlias: String? = nil, isSpace: Bool = false) {
         self.name = name
         self.topic = topic
         self.isEncrypted = isEncrypted
         self.isDirect = isDirect
         self.visibility = visibility
-        self.accessRuleOverride = accessRuleOverride
         self.isRoomFederated = isRoomFederated
         self.preset = preset
         self.invite = invite
@@ -17851,7 +17867,6 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
                 isEncrypted: FfiConverterBool.read(from: &buf), 
                 isDirect: FfiConverterBool.read(from: &buf), 
                 visibility: FfiConverterTypeRoomVisibility.read(from: &buf), 
-                accessRuleOverride: FfiConverterOptionTypeAccessRule.read(from: &buf), 
                 isRoomFederated: FfiConverterOptionBool.read(from: &buf), 
                 preset: FfiConverterTypeRoomPreset.read(from: &buf), 
                 invite: FfiConverterOptionSequenceString.read(from: &buf), 
@@ -17870,7 +17885,6 @@ public struct FfiConverterTypeCreateRoomParameters: FfiConverterRustBuffer {
         FfiConverterBool.write(value.isEncrypted, into: &buf)
         FfiConverterBool.write(value.isDirect, into: &buf)
         FfiConverterTypeRoomVisibility.write(value.visibility, into: &buf)
-        FfiConverterOptionTypeAccessRule.write(value.accessRuleOverride, into: &buf)
         FfiConverterOptionBool.write(value.isRoomFederated, into: &buf)
         FfiConverterTypeRoomPreset.write(value.preset, into: &buf)
         FfiConverterOptionSequenceString.write(value.invite, into: &buf)
@@ -21728,7 +21742,7 @@ public struct RoomInfo {
      * - is_encrypted: is the room encrypted or not
      * - visiblity: is the room visible in public directories
      */
-    public var accessRule: AccessRule?
+    public var accessRule: AccessRule
     public var isEncrypted: Bool
     public var visiblity: RoomVisibility
 
@@ -21799,7 +21813,7 @@ public struct RoomInfo {
          * - access_rule: is the room open to external user
          * - is_encrypted: is the room encrypted or not
          * - visiblity: is the room visible in public directories
-         */accessRule: AccessRule?, isEncrypted: Bool, visiblity: RoomVisibility) {
+         */accessRule: AccessRule, isEncrypted: Bool, visiblity: RoomVisibility) {
         self.id = id
         self.encryptionState = encryptionState
         self.creators = creators
@@ -21895,7 +21909,7 @@ public struct FfiConverterTypeRoomInfo: FfiConverterRustBuffer {
                 powerLevels: FfiConverterOptionTypeRoomPowerLevels.read(from: &buf), 
                 roomVersion: FfiConverterOptionString.read(from: &buf), 
                 privilegedCreatorsRole: FfiConverterBool.read(from: &buf), 
-                accessRule: FfiConverterOptionTypeAccessRule.read(from: &buf), 
+                accessRule: FfiConverterTypeAccessRule.read(from: &buf), 
                 isEncrypted: FfiConverterBool.read(from: &buf), 
                 visiblity: FfiConverterTypeRoomVisibility.read(from: &buf)
         )
@@ -21939,7 +21953,7 @@ public struct FfiConverterTypeRoomInfo: FfiConverterRustBuffer {
         FfiConverterOptionTypeRoomPowerLevels.write(value.powerLevels, into: &buf)
         FfiConverterOptionString.write(value.roomVersion, into: &buf)
         FfiConverterBool.write(value.privilegedCreatorsRole, into: &buf)
-        FfiConverterOptionTypeAccessRule.write(value.accessRule, into: &buf)
+        FfiConverterTypeAccessRule.write(value.accessRule, into: &buf)
         FfiConverterBool.write(value.isEncrypted, into: &buf)
         FfiConverterTypeRoomVisibility.write(value.visiblity, into: &buf)
     }
@@ -37947,6 +37961,7 @@ public enum SyncServiceState: Equatable, Hashable {
     case terminated
     case error
     case offline
+    case accountExpired
 
 
 
@@ -37978,6 +37993,8 @@ public struct FfiConverterTypeSyncServiceState: FfiConverterRustBuffer {
         
         case 5: return .offline
         
+        case 6: return .accountExpired
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -38004,6 +38021,10 @@ public struct FfiConverterTypeSyncServiceState: FfiConverterRustBuffer {
         
         case .offline:
             writeInt(&buf, Int32(5))
+        
+        
+        case .accountExpired:
+            writeInt(&buf, Int32(6))
         
         }
     }
@@ -46362,30 +46383,6 @@ fileprivate struct FfiConverterOptionTypeVideoInfo: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeAccessRule: FfiConverterRustBuffer {
-    typealias SwiftType = AccessRule?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeAccessRule.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeAccessRule.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterOptionTypeAccountManagementAction: FfiConverterRustBuffer {
     typealias SwiftType = AccountManagementAction?
 
@@ -49159,6 +49156,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_account_data() != 23790) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_matrix_sdk_ffi_checksum_method_client_account_expired_send_email() != 4831) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_account_url() != 53991) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50344,7 +50344,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_syncservice_room_list_service() != 39986) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_syncservice_start() != 42766) {
+    if (uniffi_matrix_sdk_ffi_checksum_method_syncservice_start() != 2090) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_syncservice_state() != 56378) {
