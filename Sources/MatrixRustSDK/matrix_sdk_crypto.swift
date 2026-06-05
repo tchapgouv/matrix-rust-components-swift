@@ -7,8 +7,8 @@ import Foundation
 // Depending on the consumer's build setup, the low-level FFI code
 // might be in a separate module, or it might be compiled inline into
 // this module. This is a bit of light hackery to work with both.
-#if canImport(matrix_sdk_cryptoFFI)
-import matrix_sdk_cryptoFFI
+#if canImport(MatrixSDKFFI)
+import MatrixSDKFFI
 #endif
 
 fileprivate extension RustBuffer {
@@ -685,14 +685,14 @@ public func FfiConverterTypeCrossSigningSecrets_lower(_ value: CrossSigningSecre
 
 
 /**
- * Struct containing the bundle of secrets to fully activate a new devices for
+ * Struct containing the bundle of secrets to fully activate a new device for
  * end-to-end encryption.
  */
 public protocol SecretsBundleProtocol: AnyObject, Sendable {
     
 }
 /**
- * Struct containing the bundle of secrets to fully activate a new devices for
+ * Struct containing the bundle of secrets to fully activate a new device for
  * end-to-end encryption.
  */
 open class SecretsBundle: SecretsBundleProtocol, @unchecked Sendable {
@@ -869,6 +869,13 @@ public enum CollectStrategy: Equatable, Hashable {
     
     /**
      * Share with all (unblacklisted) devices.
+     *
+     * Not recommended, per the guidance of [MSC4153].
+     *
+     * (Used by Element X and Element Web in the legacy, non-"exclude insecure
+     * devices" mode.)
+     *
+     * [MSC4153]: https://github.com/matrix-org/matrix-doc/pull/4153
      */
     case allDevices
     /**
@@ -886,12 +893,24 @@ public enum CollectStrategy: Equatable, Hashable {
      *
      * Once the problematic devices are blacklisted or whitelisted the
      * caller can retry to share a second time.
+     *
+     * Not recommended, per the guidance of [MSC4153].
+     *
+     * [MSC4153]: https://github.com/matrix-org/matrix-doc/pull/4153
      */
     case errorOnVerifiedUserProblem
     /**
      * Share based on identity. Only distribute to devices signed by their
      * owner. If a user has no published identity he will not receive
      * any room keys.
+     *
+     * This is the recommended strategy: it is compliant with the guidance of
+     * [MSC4153].
+     *
+     * (Used by Element Web and Element X in the "exclude insecure devices"
+     * mode.)
+     *
+     * [MSC4153]: https://github.com/matrix-org/matrix-doc/pull/4153
      */
     case identityBasedStrategy
     /**
@@ -902,6 +921,14 @@ public enum CollectStrategy: Equatable, Hashable {
      * - It is signed by its owner identity, and this identity has been
      * trusted via interactive verification.
      * - It is the current own device of the user.
+     *
+     * This strategy is compliant with [MSC4153], but is probably too strict
+     * for normal use.
+     *
+     * (Used by Element Web when "only send messages to verified users" is
+     * enabled.)
+     *
+     * [MSC4153]: https://github.com/matrix-org/matrix-doc/pull/4153
      */
     case onlyTrustedDevices
 
@@ -1328,6 +1355,90 @@ public func FfiConverterTypeLoginQrCodeDecodeError_lower(_ value: LoginQrCodeDec
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * The intent of the device that generated/displayed the QR code.
+ *
+ * The QR code login mechanism supports both, the new device, as well as the
+ * existing device to display the QR code.
+ *
+ * The different intents have an explicit one-byte identifier which gets added
+ * to the QR code data.
+ */
+
+public enum QrCodeIntent: Equatable, Hashable {
+    
+    /**
+     * Enum variant for the case where the new device is displaying the QR
+     * code.
+     */
+    case login
+    /**
+     * Enum variant for the case where the existing device is displaying the QR
+     * code.
+     */
+    case reciprocate
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension QrCodeIntent: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeQrCodeIntent: FfiConverterRustBuffer {
+    typealias SwiftType = QrCodeIntent
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> QrCodeIntent {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .login
+        
+        case 2: return .reciprocate
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: QrCodeIntent, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .login:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .reciprocate:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeQrCodeIntent_lift(_ buf: RustBuffer) throws -> QrCodeIntent {
+    return try FfiConverterTypeQrCodeIntent.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeQrCodeIntent_lower(_ value: QrCodeIntent) -> RustBuffer {
+    return FfiConverterTypeQrCodeIntent.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * The result of a signature check.
  */
 
@@ -1434,6 +1545,10 @@ public enum TrustRequirement: Equatable, Hashable {
     
     /**
      * Decrypt events from everyone regardless of trust.
+     *
+     * Not recommended, per the guidance of [MSC4153].
+     *
+     * [MSC4153]: https://github.com/matrix-org/matrix-doc/pull/4153
      */
     case untrusted
     /**
