@@ -419,6 +419,30 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterBool : FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    public static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    public static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Bool, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -454,6 +478,24 @@ fileprivate struct FfiConverterString: FfiConverter {
         let len = Int32(value.utf8.count)
         writeInt(&buf, len)
         writeBytes(&buf, value.utf8)
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterData: FfiConverterRustBuffer {
+    typealias SwiftType = Data
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
+        let len: Int32 = try readInt(&buf)
+        return Data(try readBytes(&buf, count: Int(len)))
+    }
+
+    public static func write(_ value: Data, into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        writeBytes(&buf, value)
     }
 }
 
@@ -567,12 +609,18 @@ public func FfiConverterTypeTchapGetInstance_lower(_ value: TchapGetInstance) ->
 public struct TchapGetInstanceConfig: Equatable, Hashable {
     public var homeServer: String
     public var userAgent: String
+    public var disableBuiltInRootCertificates: Bool
+    public var additionalRawRootCertificates: [Data]
+    public var proxy: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(homeServer: String, userAgent: String) {
+    public init(homeServer: String, userAgent: String, disableBuiltInRootCertificates: Bool, additionalRawRootCertificates: [Data], proxy: String?) {
         self.homeServer = homeServer
         self.userAgent = userAgent
+        self.disableBuiltInRootCertificates = disableBuiltInRootCertificates
+        self.additionalRawRootCertificates = additionalRawRootCertificates
+        self.proxy = proxy
     }
 
     
@@ -592,13 +640,19 @@ public struct FfiConverterTypeTchapGetInstanceConfig: FfiConverterRustBuffer {
         return
             try TchapGetInstanceConfig(
                 homeServer: FfiConverterString.read(from: &buf), 
-                userAgent: FfiConverterString.read(from: &buf)
+                userAgent: FfiConverterString.read(from: &buf), 
+                disableBuiltInRootCertificates: FfiConverterBool.read(from: &buf), 
+                additionalRawRootCertificates: FfiConverterSequenceData.read(from: &buf), 
+                proxy: FfiConverterOptionString.read(from: &buf)
         )
     }
 
     public static func write(_ value: TchapGetInstanceConfig, into buf: inout [UInt8]) {
         FfiConverterString.write(value.homeServer, into: &buf)
         FfiConverterString.write(value.userAgent, into: &buf)
+        FfiConverterBool.write(value.disableBuiltInRootCertificates, into: &buf)
+        FfiConverterSequenceData.write(value.additionalRawRootCertificates, into: &buf)
+        FfiConverterOptionString.write(value.proxy, into: &buf)
     }
 }
 
@@ -755,6 +809,55 @@ public func FfiConverterTypeTchapGetInstanceError_lift(_ buf: RustBuffer) throws
 #endif
 public func FfiConverterTypeTchapGetInstanceError_lower(_ value: TchapGetInstanceError) -> RustBuffer {
     return FfiConverterTypeTchapGetInstanceError.lower(value)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
+    typealias SwiftType = String?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceData: FfiConverterRustBuffer {
+    typealias SwiftType = [Data]
+
+    public static func write(_ value: [Data], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterData.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Data] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Data]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterData.read(from: &buf))
+        }
+        return seq
+    }
 }
 
 private enum InitializationResult {
