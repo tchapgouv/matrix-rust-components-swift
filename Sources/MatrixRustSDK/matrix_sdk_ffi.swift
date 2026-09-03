@@ -930,8 +930,6 @@ public protocol ClientProtocol: AnyObject, Sendable {
     
     func displayName() async throws  -> String
     
-    func downloadAttachmentFromContentScanner(mediaSource: MediaSource) async throws  -> Data
-    
     /**
      * Enables or disables all the room send queues at once.
      *
@@ -968,8 +966,6 @@ public protocol ClientProtocol: AnyObject, Sendable {
      */
     func fetchMediaPreviewConfig() async throws  -> MediaPreviewConfig?
     
-    func getContentScannerResultForAttachment(mediaSource: MediaSource) async throws  -> BwiScanState
-    
     /**
      * Get the first existing DM room with the given user, if any.
      */
@@ -979,8 +975,6 @@ public protocol ClientProtocol: AnyObject, Sendable {
      * Get an iterator with the existing DM rooms for the given user.
      */
     func getDmRooms(userId: String) throws  -> [Room]
-    
-    func getFileSizeLimitForFileUpload() async throws  -> UInt64
     
     /**
      * Get the invite request avatars display policy
@@ -1938,23 +1932,6 @@ open func displayName()async throws  -> String  {
         )
 }
     
-open func downloadAttachmentFromContentScanner(mediaSource: MediaSource)async throws  -> Data  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_client_download_attachment_from_content_scanner(
-                    self.uniffiCloneHandle(),
-                    FfiConverterTypeMediaSource_lower(mediaSource)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterData.lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-    
     /**
      * Enables or disables all the room send queues at once.
      *
@@ -2039,23 +2016,6 @@ open func fetchMediaPreviewConfig()async throws  -> MediaPreviewConfig?  {
         )
 }
     
-open func getContentScannerResultForAttachment(mediaSource: MediaSource)async throws  -> BwiScanState  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_client_get_content_scanner_result_for_attachment(
-                    self.uniffiCloneHandle(),
-                    FfiConverterTypeMediaSource_lower(mediaSource)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeBWIScanState_lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-    
     /**
      * Get the first existing DM room with the given user, if any.
      */
@@ -2078,23 +2038,6 @@ open func getDmRooms(userId: String)throws  -> [Room]  {
         FfiConverterString.lower(userId),$0
     )
 })
-}
-    
-open func getFileSizeLimitForFileUpload()async throws  -> UInt64  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_client_get_file_size_limit_for_file_upload(
-                    self.uniffiCloneHandle()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_u64,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_u64,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_u64,
-            liftFunc: FfiConverterUInt64.lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
 }
     
     /**
@@ -16868,8 +16811,6 @@ public protocol TimelineProtocol: AnyObject, Sendable {
      */
     func getEventTimelineItemByEventId(eventId: String) async throws  -> EventTimelineItem
     
-    func getFileSizeLimitForFileUpload() async throws  -> UInt64
-    
     /**
      * Returns the latest [`EventId`] in the timeline.
      */
@@ -17204,23 +17145,6 @@ open func getEventTimelineItemByEventId(eventId: String)async throws  -> EventTi
             completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
             liftFunc: FfiConverterTypeEventTimelineItem_lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-    
-open func getFileSizeLimitForFileUpload()async throws  -> UInt64  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_method_timeline_get_file_size_limit_for_file_upload(
-                    self.uniffiCloneHandle()
-                    
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_u64,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_u64,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_u64,
-            liftFunc: FfiConverterUInt64.lift,
             errorHandler: FfiConverterTypeClientError_lift
         )
 }
@@ -28580,124 +28504,6 @@ public func FfiConverterTypeAuthData_lower(_ value: AuthData) -> RustBuffer {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
- * The State that is indicated by the BWI Content Scanner
- */
-
-public enum BwiScanState: Equatable, Hashable {
-    
-    /**
-     * The Content is marked as safe
-     */
-    case trusted
-    /**
-     * The content is marked as infected and must not be loaded
-     */
-    case infected
-    /**
-     * The mime type of the file is not allowed
-     */
-    case mimeTypeNotAllowed
-    /**
-     * The content can not be scanned.
-     *     That could happen because the ContentScanner is not available
-     *     or the content can not be uploaded.
-     */
-    case error
-    /**
-     * The scan process is triggered bug not finished
-     */
-    case inProgress
-    /**
-     * The file can no longer be found and can therefore not be scanned
-     */
-    case notFound
-
-
-
-
-
-}
-
-#if compiler(>=6)
-extension BwiScanState: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeBWIScanState: FfiConverterRustBuffer {
-    typealias SwiftType = BwiScanState
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BwiScanState {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .trusted
-        
-        case 2: return .infected
-        
-        case 3: return .mimeTypeNotAllowed
-        
-        case 4: return .error
-        
-        case 5: return .inProgress
-        
-        case 6: return .notFound
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: BwiScanState, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .trusted:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .infected:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .mimeTypeNotAllowed:
-            writeInt(&buf, Int32(3))
-        
-        
-        case .error:
-            writeInt(&buf, Int32(4))
-        
-        
-        case .inProgress:
-            writeInt(&buf, Int32(5))
-        
-        
-        case .notFound:
-            writeInt(&buf, Int32(6))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeBWIScanState_lift(_ buf: RustBuffer) throws -> BwiScanState {
-    return try FfiConverterTypeBWIScanState.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeBWIScanState_lower(_ value: BwiScanState) -> RustBuffer {
-    return FfiConverterTypeBWIScanState.lower(value)
-}
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum BackupState: Equatable, Hashable {
     
@@ -35760,7 +35566,7 @@ public enum OtherState: Equatable, Hashable {
     )
     case spaceChild
     case spaceParent
-    case custom(eventType: String, eventValue: String
+    case custom(eventType: String
     )
 
 
@@ -35830,7 +35636,7 @@ public struct FfiConverterTypeOtherState: FfiConverterRustBuffer {
         
         case 19: return .spaceParent
         
-        case 20: return .custom(eventType: try FfiConverterString.read(from: &buf), eventValue: try FfiConverterString.read(from: &buf)
+        case 20: return .custom(eventType: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -35931,10 +35737,9 @@ public struct FfiConverterTypeOtherState: FfiConverterRustBuffer {
             writeInt(&buf, Int32(19))
         
         
-        case let .custom(eventType,eventValue):
+        case let .custom(eventType):
             writeInt(&buf, Int32(20))
             FfiConverterString.write(eventType, into: &buf)
-            FfiConverterString.write(eventValue, into: &buf)
             
         }
     }
@@ -36109,80 +35914,6 @@ public func FfiConverterTypeParseError_lift(_ buf: RustBuffer) throws -> ParseEr
 public func FfiConverterTypeParseError_lower(_ value: ParseError) -> RustBuffer {
     return FfiConverterTypeParseError.lower(value)
 }
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-
-public enum PasswordStrength: Equatable, Hashable {
-    
-    case weak
-    case medium
-    case strong
-
-
-
-
-
-}
-
-#if compiler(>=6)
-extension PasswordStrength: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypePasswordStrength: FfiConverterRustBuffer {
-    typealias SwiftType = PasswordStrength
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PasswordStrength {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .weak
-        
-        case 2: return .medium
-        
-        case 3: return .strong
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: PasswordStrength, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .weak:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .medium:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .strong:
-            writeInt(&buf, Int32(3))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypePasswordStrength_lift(_ buf: RustBuffer) throws -> PasswordStrength {
-    return try FfiConverterTypePasswordStrength.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypePasswordStrength_lower(_ value: PasswordStrength) -> RustBuffer {
-    return FfiConverterTypePasswordStrength.lower(value)
-}
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -37810,8 +37541,6 @@ public enum RoomError: Swift.Error, Equatable, Hashable, Foundation.LocalizedErr
     
     case FailedSendingAttachment(message: String)
     
-    case AttachmentSizeExceededUploadLimit(message: String)
-    
 
     
 
@@ -37869,10 +37598,6 @@ public struct FfiConverterTypeRoomError: FfiConverterRustBuffer {
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 8: return .AttachmentSizeExceededUploadLimit(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -37898,8 +37623,6 @@ public struct FfiConverterTypeRoomError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(6))
         case .FailedSendingAttachment(_ /* message is ignored*/):
             writeInt(&buf, Int32(7))
-        case .AttachmentSizeExceededUploadLimit(_ /* message is ignored*/):
-            writeInt(&buf, Int32(8))
 
         
         }
@@ -43014,8 +42737,6 @@ public enum VirtualTimelineItem: Equatable, Hashable {
      * The timeline start, that is, the *oldest* event in time for that room.
      */
     case timelineStart
-    case scanStateChanged(eventId: String, newScanState: BwiScanState
-    )
 
 
 
@@ -43044,9 +42765,6 @@ public struct FfiConverterTypeVirtualTimelineItem: FfiConverterRustBuffer {
         
         case 3: return .timelineStart
         
-        case 4: return .scanStateChanged(eventId: try FfiConverterString.read(from: &buf), newScanState: try FfiConverterTypeBWIScanState.read(from: &buf)
-        )
-        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -43067,12 +42785,6 @@ public struct FfiConverterTypeVirtualTimelineItem: FfiConverterRustBuffer {
         case .timelineStart:
             writeInt(&buf, Int32(3))
         
-        
-        case let .scanStateChanged(eventId,newScanState):
-            writeInt(&buf, Int32(4))
-            FfiConverterString.write(eventId, into: &buf)
-            FfiConverterTypeBWIScanState.write(newScanState, into: &buf)
-            
         }
     }
 }
@@ -53188,41 +52900,6 @@ public func sdkGitSha() -> String  {
     )
 })
 }
-public func getDataPrivacyAsUrl(homeserverUrl: String)async throws  -> String  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_func_get_data_privacy_as_url(FfiConverterString.lower(homeserverUrl)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-public func getImprintAsUrl(homeserverUrl: String)async throws  -> String  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_matrix_sdk_ffi_fn_func_get_imprint_as_url(FfiConverterString.lower(homeserverUrl)
-                )
-            },
-            pollFunc: ffi_matrix_sdk_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_matrix_sdk_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_matrix_sdk_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeClientError_lift
-        )
-}
-public func getPasswordStrength(password: String) -> PasswordStrength  {
-    return try!  FfiConverterTypePasswordStrength_lift(try! rustCall() {
-    uniffi_matrix_sdk_ffi_fn_func_get_password_strength(
-        FfiConverterString.lower(password),$0
-    )
-})
-}
 public func genTransactionId() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_matrix_sdk_ffi_fn_func_gen_transaction_id($0
@@ -53580,15 +53257,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_func_sdk_git_sha() != 4038) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_func_get_data_privacy_as_url() != 12437) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_func_get_imprint_as_url() != 27520) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_func_get_password_strength() != 54317) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_func_gen_transaction_id() != 50486) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -53742,9 +53410,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_display_name() != 20054) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_download_attachment_from_content_scanner() != 468) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_enable_all_send_queues() != 53800) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -53760,16 +53425,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_matrix_sdk_ffi_checksum_method_client_fetch_media_preview_config() != 53942) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_get_content_scanner_result_for_attachment() != 35013) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_dm_room() != 38531) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_dm_rooms() != 40615) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_client_get_file_size_limit_for_file_upload() != 8081) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_client_get_invite_avatars_display_policy() != 16387) {
@@ -55063,9 +54722,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_timeline_get_event_timeline_item_by_event_id() != 40008) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_matrix_sdk_ffi_checksum_method_timeline_get_file_size_limit_for_file_upload() != 20865) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_matrix_sdk_ffi_checksum_method_timeline_latest_event_id() != 31074) {
